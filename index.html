@@ -14,12 +14,12 @@
         extend: {
           colors: {
             studio: {
-              950: '#050811',
-              900: '#0a0f1d',
+              950: '#030712',
+              900: '#0b0f19',
               850: '#111827',
-              800: '#1e293b',
-              700: '#334155',
-              600: '#475569',
+              800: '#1f2937',
+              700: '#374151',
+              600: '#4b5563',
               cyan: '#06b6d4',
               rose: '#f43f5e',
               emerald: '#10b981',
@@ -71,27 +71,32 @@
       background-color: #000000;
       position: relative;
       overflow: hidden;
+      border-radius: 1rem;
     }
     .fhd-element {
       width: 100%;
       height: 100%;
       object-fit: contain;
+      background-color: #000000;
     }
-    /* Keep background stage active in DOM so canvas.captureStream never halts */
-    .studio-inactive-tab {
-      position: absolute !important;
-      left: -99999px !important;
-      top: 0 !important;
-      width: 1920px !important;
-      height: 1080px !important;
-      opacity: 0 !important;
+    /* Safe container keeps canvas rendering even when user switches to listener tab */
+    .studio-view-hidden {
+      display: none !important;
+    }
+    .studio-bg-dock {
+      position: fixed !important;
+      bottom: 0 !important;
+      right: 0 !important;
+      width: 320px !important;
+      height: 180px !important;
+      opacity: 0.01 !important;
       pointer-events: none !important;
-      z-index: -50 !important;
+      z-index: -99 !important;
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0a0f1d; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #374151; }
   </style>
 </head>
 
@@ -115,10 +120,10 @@
               WaveCast <span class="text-cyan-400">Live Video Studio</span>
             </h1>
             <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
-              1080p Full HD (16:9)
+              1080p FHD (16:9)
             </span>
           </div>
-          <p class="text-xs text-slate-400 hidden sm:block">P2P Broadcast Engine • WebRTC Mesh • Real-Time Audio DSP</p>
+          <p class="text-xs text-slate-400 hidden sm:block">Full HD Broadcast Engine • Local & Cross-Tab WebRTC Mesh</p>
         </div>
       </div>
 
@@ -126,7 +131,7 @@
       <div class="flex items-center gap-3">
         <div id="peerStatusPill" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono bg-studio-850 border border-studio-800 text-slate-300">
           <span id="peerDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="peerStatusLabel">Canvas-Safe Mesh Ready</span>
+          <span id="peerStatusLabel">Mesh Engine Ready</span>
         </div>
 
         <button onclick="copyStationInviteLink()" title="Copy Permanent Link" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition">
@@ -141,7 +146,6 @@
     </div>
   </header>
 
-  <!-- Main Content Layout -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
 
     <!-- Station Configuration & Permanent Room Key Bar -->
@@ -184,25 +188,14 @@
           </div>
         </div>
 
-        <!-- Single Tab Loopback & Virtual SMPTE Test Card Generator -->
+        <!-- Virtual SMPTE 1080p Generator Toggle -->
         <div class="flex items-center gap-2">
-          <button onclick="toggleVirtualTestCard()" id="virtualCardBtn" class="px-3 py-2 bg-violet-950/60 hover:bg-violet-900/80 border border-violet-700/70 text-violet-300 rounded-xl text-xs font-mono flex items-center justify-center gap-1.5 transition">
+          <button onclick="toggleVirtualTestCard()" id="virtualCardBtn" class="px-3.5 py-2 bg-violet-950/60 hover:bg-violet-900/80 border border-violet-700/70 text-violet-300 rounded-xl text-xs font-mono flex items-center justify-center gap-1.5 transition">
             <i data-lucide="sliders" class="w-4 h-4 text-violet-400"></i>
             <span id="virtualCardLabel">SMPTE 1080p Test</span>
           </button>
         </div>
 
-      </div>
-
-      <!-- ID Conflict Recovery Banner -->
-      <div id="idConflictBanner" class="hidden mt-3 p-3 rounded-xl bg-amber-950/40 border border-amber-600/60 text-amber-300 text-xs flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-          <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0 text-amber-400"></i>
-          <span>
-            <strong>Station ID busy on WebRTC broker.</strong> Waiting for old peer socket clearance. Retrying in <span id="conflictCountdown" class="font-mono font-bold text-white">3</span>s...
-          </span>
-        </div>
-        <button onclick="forceRetryCustomRoom()" class="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 text-white font-medium rounded text-[11px] whitespace-nowrap">Retry Now</button>
       </div>
     </section>
 
@@ -226,7 +219,7 @@
                 <span class="w-2 h-2 rounded-full bg-slate-500"></span>
                 OFFLINE PREVIEW
               </span>
-              <span id="activeSourceBadge" class="text-slate-400 font-mono text-[11px]">Source: Camera</span>
+              <span id="activeSourceBadge" class="text-slate-400 font-mono text-[11px]">Source: Standby</span>
             </div>
 
             <!-- Resolution & Stream Metrics -->
@@ -238,7 +231,7 @@
           </div>
 
           <!-- Master 16:9 FHD Stage -->
-          <div class="fhd-stage">
+          <div class="fhd-stage" id="masterStageWrapper">
             <video id="broadcasterHiddenVideo" autoplay playsinline muted class="hidden"></video>
             <!-- Fixed 1920x1080 Internal Resolution Canvas -->
             <canvas id="broadcasterMasterCanvas" width="1920" height="1080" class="fhd-element"></canvas>
@@ -375,13 +368,13 @@
             </div>
             <button onclick="pingAllViewers()" class="text-xs text-slate-400 hover:text-cyan-400 flex items-center gap-1.5 transition">
               <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-              <span>Ping Mesh Latency</span>
+              <span>Refresh Telemetry</span>
             </button>
           </div>
 
           <div id="audienceRosterContainer" class="divide-y divide-studio-800 max-h-40 overflow-y-auto pr-1 text-xs">
             <div id="noViewersPlaceholder" class="py-6 text-center text-slate-500">
-              No audience members currently connected. Share your station link to invite viewers.
+              No audience members currently connected. Share your station link or switch to Audience Screen to tune in.
             </div>
           </div>
         </div>
@@ -398,7 +391,7 @@
               <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i>
               <span class="text-sm font-semibold text-white">Broadcast Stage Chat</span>
             </div>
-            <span class="text-[11px] font-mono text-cyan-400">DataChannel</span>
+            <span class="text-[11px] font-mono text-cyan-400">Real-Time P2P</span>
           </div>
 
           <!-- Quick Reactions Toolbar -->
@@ -444,7 +437,7 @@
     </div>
 
     <!-- Audience Receiver Mode Section -->
-    <div id="listenerContainer" class="hidden grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <div id="listenerContainer" class="studio-view-hidden grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
       
       <!-- Video Player Deck (8 Cols) -->
       <div class="lg:col-span-8 flex flex-col gap-6">
@@ -456,7 +449,7 @@
               <i data-lucide="tv" class="w-5 h-5 text-cyan-400"></i>
               Audience 1080p Live Feed
             </h2>
-            <p class="text-xs text-slate-400">Strict 16:9 Full HD WebRTC Stream</p>
+            <p class="text-xs text-slate-400">Strict 16:9 Full HD WebRTC Player</p>
           </div>
 
           <div class="flex items-center gap-2">
@@ -482,7 +475,7 @@
             <video id="remoteVideoSink" autoplay playsinline muted class="fhd-element"></video>
 
             <!-- Floating Unmute Audio Pill (Non-blocking) -->
-            <button id="unmuteAudioBtn" onclick="unmuteRemoteVideo()" class="hidden absolute top-4 left-4 z-20 px-3 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-xl flex items-center gap-1.5 animate-bounce transition">
+            <button id="unmuteAudioBtn" onclick="unmuteRemoteVideo()" class="hidden absolute top-4 left-4 z-20 px-3.5 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-xl flex items-center gap-1.5 animate-bounce transition">
               <i data-lucide="volume-x" class="w-4 h-4"></i>
               <span>Click to Unmute Audio</span>
             </button>
@@ -508,7 +501,7 @@
               <input id="listenerVolumeSlider" type="range" min="0" max="1" step="0.05" value="0.9" oninput="adjustViewerVolume(this.value)" class="accent-cyan-400 w-24 sm:w-32 h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer">
               
               <span id="viewerStatusPill" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-live"></span> LIVE 1080p
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-live"></span> LIVE 1080p FHD
               </span>
             </div>
 
@@ -606,8 +599,8 @@
       </div>
 
       <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
-        <p><strong class="text-cyan-400">1. Strict 1080p 16:9 Ratio:</strong> All internal compositing buffers are locked at 1920×1080 resolution. Display stages enforce a 16:9 ratio with letterbox/pillarbox fitting to prevent stretching.</p>
-        <p><strong class="text-emerald-400">2. Rock-Solid Connection:</strong> Peer calls now use full media negotiation with both stream and track listener fallbacks, plus Google/Twilio STUN candidates.</p>
+        <p><strong class="text-cyan-400">1. Strict 1080p 16:9 Ratio:</strong> All internal compositing buffers are locked at 1920×1080 resolution. Display stages enforce a 16:9 ratio with letterbox fitting to prevent stretching or skewing.</p>
+        <p><strong class="text-emerald-400">2. Rock-Solid Connection:</strong> Features message deduplication, candidate queuing, and dual-layer signaling so connections establish reliably across tabs and in single-tab loopback.</p>
         <p><strong class="text-rose-400">3. Browser Autoplay Compliance:</strong> Inbound video plays muted first, then smoothly unblocks audio when you interact with the stage or tap the play overlay.</p>
         <p><strong class="text-violet-400">4. Instant Testing:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-violet-300">SMPTE 1080p Test</code> to broadcast a 1080p test pattern and synth audio on a single tab without needing a camera.</p>
       </div>
@@ -621,12 +614,11 @@
   <!-- Hidden Virtual Canvas for 1080p SMPTE Pattern Generation -->
   <canvas id="virtualSmpteCanvas" width="1920" height="1080" class="hidden"></canvas>
 
-  <!-- Application Logic & Canvas-Safe Native WebRTC Engine -->
   <script>
-    // Global guard against sandbox SecurityErrors and WebSocket restrictions in Canvas
+    // Global guard against sandbox SecurityErrors
     window.addEventListener('unhandledrejection', (event) => {
       if (event.reason && (event.reason.name === 'SecurityError' || String(event.reason).includes('WebSocket'))) {
-        console.warn('Canvas Sandbox WebSocket blocked (handled gracefully):', event.reason.message);
+        console.warn('Sandbox policy handled:', event.reason.message);
         event.preventDefault();
       }
     });
@@ -634,17 +626,19 @@
     const STORAGE_KEY_ROOM_ID = 'wavecast_video_room_id';
     const DEFAULT_STATIC_ROOM_ID = 'wavecast-live-fhd';
 
-    // Application Master State - Independent Broadcaster and Listener Entities
+    // Application Master State
     const state = {
       activeTab: 'broadcaster', // 'broadcaster' | 'listener'
       staticRoomId: '',
       
       // Distinct IDs so broadcaster & listener can co-exist in same window or across tabs
-      broadcasterId: 'host-' + Math.random().toString(36).substring(2, 8),
-      listenerId: 'viewer-' + Math.random().toString(36).substring(2, 8),
+      broadcasterId: 'host-' + Math.random().toString(36).substring(2, 9),
+      listenerId: 'viewer-' + Math.random().toString(36).substring(2, 9),
 
-      // Signaling Bus (Canvas-safe: BroadcastChannel + localStorage + in-memory dispatch)
+      // Signaling Bus with Deduplication
       broadcastChannel: null,
+      processedMessageIds: new Set(),
+      msgSeq: 0,
 
       // Broadcaster Media & P2P Sockets
       isBroadcasting: false,
@@ -669,10 +663,11 @@
       lowerThirdTitle: 'WaveCast FHD Studio',
       lowerThirdSub: '1080p 16:9 Full HD Stream',
 
-      // Master Canvas Rendering
+      // Master Canvas Rendering & Dual Clock
       fpsCounter: 0,
       fpsLastTime: performance.now(),
       fpsCurrent: 30,
+      lastDrawTime: performance.now(),
 
       // SMPTE Test Card Generator
       testCardAnimId: null,
@@ -685,7 +680,7 @@
       recordingStartTime: null,
       recordingTimerInterval: null,
 
-      // Broadcaster Audience Mesh: peerId -> { pc, dc, rttMs }
+      // Broadcaster Audience Mesh: peerId -> { pc, dc, pendingCandidates, rttMs }
       audience: new Map(),
 
       // Listener State
@@ -705,10 +700,10 @@
       // Enumerate media devices
       await populateMediaDevices();
 
-      // Start local monitor loop (1080p canvas)
+      // Start local monitor loop (1080p canvas with watchdog)
       initBroadcasterCanvasLoop();
 
-      // Initialize Canvas-Safe Signaling Mesh
+      // Initialize Canvas-Safe Signaling Mesh with Deduplication
       initSignalingMesh();
 
       // Check URL query parameters or hash to set viewer mode
@@ -740,9 +735,9 @@
     }
 
     /**
-     * Canvas-Safe Signaling Engine:
+     * Canvas-Safe Signaling Engine with Deduplication:
      * Uses BroadcastChannel + localStorage events + in-window CustomEvents.
-     * Operates 100% locally with zero external WebSocket dependencies.
+     * Every message has a unique msgId to eliminate double-firing.
      */
     function initSignalingMesh() {
       if (state.broadcastChannel) {
@@ -781,29 +776,57 @@
     }
 
     function sendSignal(data) {
-      const packet = { ...data, roomId: state.staticRoomId, timestamp: Date.now() };
+      state.msgSeq++;
+      const msgId = `${data.senderId || 'anon'}_${Date.now()}_${state.msgSeq}`;
+      const packet = { ...data, msgId, roomId: state.staticRoomId, timestamp: Date.now() };
 
-      // 1. BroadcastChannel
+      // Mark locally sent messages as already processed so loopback doesn't double-process
+      state.processedMessageIds.add(msgId);
+      cleanupProcessedMessageIds();
+
+      // 1. BroadcastChannel (Cross-tab)
       if (state.broadcastChannel) {
         try { state.broadcastChannel.postMessage(packet); } catch(e){}
       }
 
-      // 2. Storage event
+      // 2. Storage event (Cross-tab fallback)
       try {
         localStorage.setItem(`wavecast_sig_${state.staticRoomId}`, JSON.stringify(packet));
       } catch(e){}
 
-      // 3. Same-window internal dispatch
+      // 3. Same-window internal dispatch (Single-tab loopback)
       try {
         window.dispatchEvent(new CustomEvent('wavecast-internal-signal', { detail: packet }));
       } catch(e){}
     }
 
+    function cleanupProcessedMessageIds() {
+      if (state.processedMessageIds.size > 200) {
+        const arr = Array.from(state.processedMessageIds);
+        state.processedMessageIds = new Set(arr.slice(100));
+      }
+    }
+
     async function handleSignalingMessage(msg) {
       if (!msg || msg.roomId !== state.staticRoomId) return;
 
+      // Deduplicate: If we already processed this message, drop it
+      if (msg.msgId) {
+        if (state.processedMessageIds.has(msg.msgId)) {
+          // If this is a loopback event from this exact window, allow internal routing if cross-role
+          if (msg.senderId === state.broadcasterId && msg.targetId === state.listenerId) {
+            // continue for loopback
+          } else if (msg.senderId === state.listenerId && (msg.targetId === state.broadcasterId || msg.type === 'listener-join')) {
+            // continue for loopback
+          } else {
+            return;
+          }
+        }
+        state.processedMessageIds.add(msg.msgId);
+        cleanupProcessedMessageIds();
+      }
+
       // --- BROADCASTER HANDLERS ---
-      // Broadcaster listens for requests targeted to it or global join requests
       if (msg.senderId !== state.broadcasterId) {
         if (msg.type === 'listener-join') {
           handleBroadcasterReceiveJoin(msg.senderId);
@@ -817,7 +840,6 @@
       }
 
       // --- LISTENER HANDLERS ---
-      // Listener listens for offers and messages targeted to it or global stream announcements
       if (msg.senderId !== state.listenerId) {
         if (msg.type === 'offer' && (msg.targetId === state.listenerId || !msg.targetId)) {
           handleListenerReceiveOffer(msg.senderId, msg.sdp);
@@ -829,16 +851,6 @@
           handleDataPayload(msg);
         }
       }
-    }
-
-    function hideConflictBanner() {
-      const banner = document.getElementById('idConflictBanner');
-      if (banner) banner.classList.add('hidden');
-    }
-
-    function forceRetryCustomRoom() {
-      hideConflictBanner();
-      initSignalingMesh();
     }
 
     function applyAndPersistCustomRoomId() {
@@ -867,6 +879,7 @@
       initSignalingMesh();
     }
 
+    // Standard STUN candidates
     const RTC_CONFIG = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -906,12 +919,13 @@
       setupDataChannelEvents(dc, listenerId);
 
       // Store candidate queue on broadcaster peer entry to prevent race condition drops
-      state.audience.set(listenerId, { 
+      const peerEntry = { 
         pc, 
         dc, 
         rttMs: '< 2 ms',
         pendingCandidates: [] 
-      });
+      };
+      state.audience.set(listenerId, peerEntry);
       updateAudienceRoster();
 
       // Ensure Master 1080p Canvas stream is active
@@ -943,7 +957,7 @@
             type: 'ice-candidate',
             senderId: state.broadcasterId,
             targetId: listenerId,
-            candidate: event.candidate
+            candidate: event.candidate.toJSON()
           });
         }
       };
@@ -976,6 +990,9 @@
     function getSilentAudioDestination() {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!state.audioCtx) state.audioCtx = new AudioCtx({ sampleRate: 48000 });
+      if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume().catch(() => {});
+      }
       const osc = state.audioCtx.createOscillator();
       const gain = state.audioCtx.createGain();
       gain.gain.value = 0;
@@ -1069,7 +1086,7 @@
             type: 'ice-candidate',
             senderId: state.listenerId,
             targetId: broadcasterId,
-            candidate: event.candidate
+            candidate: event.candidate.toJSON()
           });
         }
       };
@@ -1091,7 +1108,7 @@
         // Process any queued ICE candidates that arrived before remoteDescription
         while (state.listenerPendingCandidates.length > 0) {
           const cand = state.listenerPendingCandidates.shift();
-          try { await pc.addIceCandidate(cand); } catch(e){}
+          try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e){}
         }
 
         const answer = await pc.createAnswer();
@@ -1113,16 +1130,13 @@
     }
 
     async function handleListenerReceiveCandidate(candidate) {
-      if (!state.listenerPc) return;
-      const iceCand = new RTCIceCandidate(candidate);
-
-      if (state.listenerPc.remoteDescription && state.listenerPc.remoteDescription.type) {
-        try {
-          await state.listenerPc.addIceCandidate(iceCand);
-        } catch(e){}
-      } else {
-        state.listenerPendingCandidates.push(iceCand);
+      if (!state.listenerPc || !state.listenerPc.remoteDescription || !state.listenerPc.remoteDescription.type) {
+        state.listenerPendingCandidates.push(candidate);
+        return;
       }
+      try {
+        await state.listenerPc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch(e){}
     }
 
     function updateStreamStatusBadge(status) {
@@ -1151,7 +1165,7 @@
       state.staticRoomId = targetRoom;
       document.getElementById('tuneBtnLabel').textContent = 'Connecting...';
       document.getElementById('listenerTuneBtn').disabled = true;
-      document.getElementById('statIce').textContent = 'SEARCHING MESH...';
+      document.getElementById('statIce').textContent = 'CONNECTING...';
 
       // Send join request through local canvas signaling mesh
       sendSignal({
@@ -1167,22 +1181,21 @@
       document.getElementById('listenerChatInput').disabled = false;
       document.getElementById('listenerSendBtn').disabled = false;
 
-      // Robust fallback timer: if no stream playing within 1.2s, bridge directly so user always gets instant 1080p video
+      // Auto fallback: If broadcaster is in the same tab or room is idle, loopback connects directly
       if (state.joinTimeoutTimer) clearTimeout(state.joinTimeoutTimer);
       state.joinTimeoutTimer = setTimeout(() => {
         const videoEl = document.getElementById('remoteVideoSink');
         if (!videoEl.srcObject || videoEl.paused) {
-          // Auto-start broadcaster studio loopback if idle
-          if (!state.isBroadcasting) {
-            handleBroadcasterReceiveJoin(state.listenerId);
-          }
-          // Direct fallback pipeline for strict sandbox iframe environments
+          // If broadcaster is present in this window, link streams
           if (state.canvasStream) {
             handleRemoteVideoStream(state.canvasStream);
-            document.getElementById('statIce').textContent = 'CONNECTED (1080p Direct)';
+            document.getElementById('statIce').textContent = 'CONNECTED (1080p Loopback)';
+          } else if (!state.isBroadcasting) {
+            // Auto start SMPTE pattern and attach
+            handleBroadcasterReceiveJoin(state.listenerId);
           }
         }
-      }, 1200);
+      }, 900);
     }
 
     function disconnectListenerFromStation() {
@@ -1228,9 +1241,15 @@
       }
 
       videoEl.muted = true; // Required by all major browsers to ensure immediate video playback without user block
-      videoEl.play().catch(err => {
-        console.warn('Autoplay initial notice:', err);
-      });
+      
+      const attemptPlay = () => {
+        videoEl.play().catch(err => {
+          console.warn('Autoplay initial notice:', err);
+        });
+      };
+
+      videoEl.onloadedmetadata = attemptPlay;
+      attemptPlay();
 
       document.getElementById('listenerStandbyScreen').classList.add('hidden');
 
@@ -1394,7 +1413,7 @@
         state.audioCtx = new AudioContext({ sampleRate: 48000 });
       }
       if (state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume();
+        state.audioCtx.resume().catch(() => {});
       }
 
       const dest = state.audioCtx.createMediaStreamDestination();
@@ -1502,6 +1521,7 @@
 
     /**
      * Master Video Composition Canvas (Strict 1920x1080 @ 16:9)
+     * Features watchdog timer to prevent browser throttling when switching tabs.
      */
     function initBroadcasterCanvasLoop() {
       const canvas = document.getElementById('broadcasterMasterCanvas');
@@ -1512,8 +1532,8 @@
       const W = 1920;
       const H = 1080;
 
-      function loop(time) {
-        requestAnimationFrame(loop);
+      function renderFrame(time) {
+        state.lastDrawTime = time;
 
         // Calculate FPS
         state.fpsCounter++;
@@ -1544,6 +1564,7 @@
           let offX = 0;
           let offY = 0;
 
+          // Strict letterbox/pillarbox math - preserves crisp Full HD ratio without stretch
           if (videoRatio > targetRatio) {
             drawW = W;
             drawH = W / videoRatio;
@@ -1564,7 +1585,7 @@
           }
           ctx.restore();
         } else {
-          ctx.fillStyle = '#050811';
+          ctx.fillStyle = '#030712';
           ctx.fillRect(0, 0, W, H);
         }
 
@@ -1576,8 +1597,8 @@
           const boxW = 760;
           const boxH = 110;
 
-          ctx.fillStyle = 'rgba(5, 8, 17, 0.90)';
-          ctx.strokeStyle = 'rgba(6, 182, 212, 0.8)';
+          ctx.fillStyle = 'rgba(3, 7, 18, 0.92)';
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.85)';
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.roundRect(boxX, boxY, boxW, boxH, 20);
@@ -1599,7 +1620,19 @@
         }
       }
 
-      requestAnimationFrame(loop);
+      function rAfLoop(time) {
+        requestAnimationFrame(rAfLoop);
+        renderFrame(time);
+      }
+      requestAnimationFrame(rAfLoop);
+
+      // Watchdog ticker: ensures frames are rendered even when tab is backgrounded
+      setInterval(() => {
+        const now = performance.now();
+        if (now - state.lastDrawTime > 45) {
+          renderFrame(now);
+        }
+      }, 33);
     }
 
     /**
@@ -2029,18 +2062,18 @@
       const tabL = document.getElementById('tabListenerBtn');
 
       if (role === 'broadcaster') {
-        bContainer.classList.remove('studio-inactive-tab');
+        bContainer.classList.remove('studio-bg-dock', 'studio-view-hidden');
         bContainer.classList.add('grid');
-        lContainer.classList.add('studio-inactive-tab');
+        lContainer.classList.add('studio-view-hidden');
         lContainer.classList.remove('grid');
 
         tabB.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
         tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-slate-200';
       } else {
-        // Use .studio-inactive-tab instead of .hidden so canvas.captureStream() keeps running in background
-        bContainer.classList.add('studio-inactive-tab');
+        // Keep Broadcaster in safe background dock so canvas.captureStream never halts
         bContainer.classList.remove('grid');
-        lContainer.classList.remove('studio-inactive-tab');
+        bContainer.classList.add('studio-bg-dock');
+        lContainer.classList.remove('studio-view-hidden');
         lContainer.classList.add('grid');
 
         tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
