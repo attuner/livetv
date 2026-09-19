@@ -1,1618 +1,1211 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WaveCast Live Video Studio - 1080p Full HD</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NexusMeet - Video, Audio & Screen Share</title>
 
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS for WebRTC P2P mesh -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            studio: {
-              950: '#030712',
-              900: '#090d16',
-              850: '#0f172a',
-              800: '#1e293b',
-              700: '#334155',
-              600: '#475569',
-              cyan: '#06b6d4',
-              rose: '#f43f5e',
-              emerald: '#10b981',
-              violet: '#8b5cf6',
-              amber: '#f59e0b'
-            }
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            surface: '#0f172a',
+            surfaceLight: '#1e293b',
+            surfaceLighter: '#334155',
           },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+          animation: {
+            'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
           }
         }
       }
-    };
+    }
   </script>
 
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Canvas Confetti -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-
   <style>
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.05); opacity: 0.3; }
-      100% { transform: scale(0.95); opacity: 0.8; }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
-    .pulse-live {
-      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
     }
-    @keyframes float-upward {
-      0% { transform: translateY(0) scale(0.85); opacity: 1; }
-      100% { transform: translateY(-220px) scale(1.3); opacity: 0; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.6);
+      border-radius: 9999px;
     }
-    .floating-emoji {
-      position: absolute;
-      pointer-events: none;
-      animation: float-upward 2.2s ease-out forwards;
-      z-index: 70;
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.8);
     }
-    /* Fixed 16:9 Letterbox Viewports */
-    .viewport-16-9 {
-      aspect-ratio: 16 / 9;
-      width: 100%;
-      background-color: #000000;
-      position: relative;
-      overflow: hidden;
-      border-radius: 0.875rem;
+    .video-mirror {
+      transform: scaleX(-1);
     }
-    .video-fit-16-9 {
+    /* Grid layout dynamics */
+    .video-grid {
+      display: grid;
+      gap: 1rem;
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      background-color: #000000;
+      align-content: center;
+      justify-content: center;
     }
-    /* Custom clean scrollbars */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #090d16; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #334155; }
   </style>
 </head>
 
-<body class="bg-studio-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black antialiased relative overflow-x-hidden">
+<body class="h-full overflow-hidden font-sans antialiased bg-slate-950 text-slate-100 flex flex-col">
 
-  <!-- Floating Live Reaction Container -->
-  <div id="reactionSurface" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
-
-  <!-- Main Top Bar -->
-  <header class="border-b border-studio-800 bg-studio-900/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-3">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-      
-      <!-- Brand & Resolution Indicator -->
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-violet-600 to-rose-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 flex-shrink-0">
-          <i data-lucide="radio" class="w-5 h-5 text-white"></i>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
-              WaveCast <span class="text-cyan-400">Live Video Studio</span>
-            </h1>
-            <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
-              1080p FHD (16:9)
-            </span>
-          </div>
-          <p class="text-xs text-slate-400 hidden sm:block">P2P Full HD WebRTC Mesh • Instant Local & Cross-Tab Transmission</p>
-        </div>
+  <header class="h-14 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur px-4 md:px-6 flex items-center justify-between z-20 select-none">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+        <i data-lucide="video" class="w-4 h-4"></i>
       </div>
+      <div>
+        <span class="font-bold text-base md:text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NexusMeet</span>
+        <span class="text-[10px] uppercase font-semibold tracking-wider text-brand-500 px-1.5 py-0.5 rounded bg-brand-500/10 ml-2 border border-brand-500/20">P2P HD</span>
+      </div>
+    </div>
 
-      <!-- Network Mesh Status & Quick Action Buttons -->
-      <div class="flex items-center gap-2.5">
-        <div id="meshStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono bg-studio-850 border border-studio-800 text-slate-300">
-          <span id="meshDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span id="meshStatusText">P2P Ready</span>
-        </div>
-
-        <button onclick="copyPermanentLink()" title="Copy Permanent Station Link" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition">
-          <i data-lucide="share-2" class="w-4 h-4 text-cyan-400"></i>
-        </button>
-
-        <button onclick="toggleHelpModal(true)" title="Broadcast Help & Tips" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition">
-          <i data-lucide="help-circle" class="w-4 h-4"></i>
+    <!-- Active Call Header Controls -->
+    <div id="header-call-info" class="hidden items-center space-x-2 md:space-x-4">
+      <div class="flex items-center bg-slate-800/70 border border-slate-700/60 rounded-full px-3 py-1 text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+        <span class="text-slate-400 mr-1.5 hidden sm:inline">Room:</span>
+        <span id="current-room-label" class="font-mono font-medium text-slate-200 truncate max-w-[120px] sm:max-w-[200px]">---</span>
+        <button id="btn-copy-header" title="Copy Invitation Link" class="ml-2 text-slate-400 hover:text-white transition p-0.5 rounded">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
       </div>
 
+      <div class="hidden sm:flex items-center space-x-2 text-xs text-slate-400">
+        <i data-lucide="users" class="w-4 h-4"></i>
+        <span id="participant-counter">1 in call</span>
+      </div>
+    </div>
+
+    <!-- System Status & Help -->
+    <div class="flex items-center space-x-2">
+      <div id="connection-badge" class="flex items-center space-x-1.5 text-xs px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-300">
+        <span id="conn-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+        <span id="conn-text" class="hidden sm:inline font-medium">Ready</span>
+      </div>
+      <button id="btn-open-settings" title="Audio/Video Devices" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+      </button>
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col gap-5">
+  <main class="flex-1 relative overflow-hidden flex flex-row">
 
-    <!-- Station Identifier & View Mode Switcher -->
-    <section class="bg-studio-900 border border-studio-800 rounded-2xl p-4 shadow-xl">
-      <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+    <!-- VIEW 1: LOBBY & PREVIEW SCREEN -->
+    <div id="view-lobby" class="w-full h-full flex items-center justify-center p-4 md:p-8 overflow-y-auto">
+      <div class="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6">
         
-        <!-- Viewport Selector: Broadcaster, Viewer, or Split Mode -->
-        <div class="inline-flex p-1 bg-studio-950 border border-studio-800 rounded-xl self-start sm:self-auto flex-wrap">
-          <button id="viewTabBroadcaster" onclick="setActiveViewMode('broadcaster')" class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow">
-            <i data-lucide="camera" class="w-4 h-4 text-rose-400"></i>
-            <span>Broadcaster Studio</span>
-          </button>
-          <button id="viewTabAudience" onclick="setActiveViewMode('audience')" class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white">
-            <i data-lucide="tv" class="w-4 h-4 text-cyan-400"></i>
-            <span>Audience Screen</span>
-          </button>
-          <button id="viewTabSplit" onclick="setActiveViewMode('split')" class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white">
-            <i data-lucide="columns-2" class="w-4 h-4 text-violet-400"></i>
-            <span class="hidden sm:inline">Split View (Host + Viewer)</span>
-            <span class="sm:hidden">Split</span>
-          </button>
-        </div>
-
-        <!-- Station ID Persistence Field -->
-        <div class="flex-1 max-w-xl bg-studio-950/90 border border-studio-800 rounded-xl p-2 sm:p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div class="flex items-center gap-2 min-w-[120px] text-xs font-mono text-slate-400 pl-1">
-            <i data-lucide="key" class="w-3.5 h-3.5 text-cyan-400"></i>
-            <span>Station ID:</span>
-          </div>
-
-          <input id="roomNameInput" type="text" value="wavecast-fhd" spellcheck="false"
-                 class="flex-1 bg-studio-900 border border-studio-800 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-mono text-cyan-300 font-bold focus:outline-none focus:border-cyan-500 transition">
-
-          <div class="flex items-center gap-1.5">
-            <button onclick="saveAndApplyStationId()" class="px-3 py-1.5 bg-studio-800 hover:bg-studio-700 text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition">
-              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span>Save</span>
-            </button>
-            <button onclick="copyPermanentLink()" class="px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 font-medium rounded-lg text-xs flex items-center gap-1.5 transition">
-              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-              <span>Link</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <div id="broadcasterSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      
-      <!-- Video Monitor & Primary Broadcaster Controls (8 Columns) -->
-      <div class="lg:col-span-8 flex flex-col gap-5">
-        
-        <!-- Live Video Monitor Container -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
-          
-          <!-- Monitor Status Top Bar -->
-          <div class="px-4 py-2.5 bg-studio-950/90 border-b border-studio-800 flex items-center justify-between text-xs">
-            <div class="flex items-center gap-3">
-              <span id="hostStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">
-                <span id="hostStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-                <span id="hostStatusText">STANDBY PREVIEW</span>
-              </span>
-              <span id="currentSourceBadge" class="text-slate-400 font-mono text-[11px]">Source: Standby</span>
-            </div>
-
-            <div class="flex items-center gap-3 font-mono text-[11px] text-slate-400">
-              <span class="text-cyan-400 font-bold">1920×1080 (16:9 FHD)</span>
-              <span>•</span>
-              <span id="hostFpsText">30 FPS</span>
-            </div>
-          </div>
-
-          <!-- Master 16:9 1080p Stage -->
-          <div class="viewport-16-9" id="hostStage">
-            <!-- Hidden Raw Video Sink for Camera / Screen -->
-            <video id="cameraRawVideo" autoplay playsinline muted class="hidden"></video>
+        <!-- Left: Camera Preview & Test -->
+        <div class="lg:col-span-7 flex flex-col items-center">
+          <div class="w-full aspect-video bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl flex items-center justify-center group">
+            <video id="preview-video" autoplay playsinline muted class="w-full h-full object-cover video-mirror"></video>
             
-            <!-- Master 1920x1080 Broadcast Canvas (Source of WebRTC 1080p Video Track) -->
-            <canvas id="masterCompositorCanvas" width="1920" height="1080" class="video-fit-16-9"></canvas>
-
-            <!-- Lower Third On-Screen Overlay -->
-            <div id="lowerThirdGraphic" class="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md bg-studio-950/90 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex items-center gap-3 transition-opacity duration-300 pointer-events-none">
-              <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                <i data-lucide="radio" class="w-5 h-5"></i>
+            <!-- Video Off Fallback Avatar -->
+            <div id="preview-avatar" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10 hidden">
+              <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow-xl">
+                ME
               </div>
-              <div class="flex-1 min-w-0">
-                <p id="lowerThirdDisplayTitle" class="text-xs font-bold text-white uppercase tracking-wider truncate">WaveCast FHD Studio</p>
-                <p id="lowerThirdDisplaySub" class="text-[11px] font-mono text-cyan-400 truncate">1080p 16:9 Full HD Stream</p>
+              <p class="text-xs text-slate-400 mt-3">Camera is turned off</p>
+            </div>
+
+            <!-- Preview Media Toggles Over Video -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center space-x-3 bg-slate-950/70 backdrop-blur-md border border-slate-700/60 rounded-full px-4 py-2 z-20">
+              <button id="preview-btn-mic" class="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none" title="Toggle Microphone">
+                <i data-lucide="mic" class="w-5 h-5"></i>
+              </button>
+              <!-- Audio Level Visualizer Bar in Preview -->
+              <div class="w-16 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div id="preview-mic-level" class="w-0 h-full bg-emerald-500 rounded-full transition-all duration-75"></div>
               </div>
-            </div>
-
-            <!-- Standby Overlay -->
-            <div id="hostStandbyOverlay" class="absolute inset-0 bg-studio-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-center p-6 space-y-3 pointer-events-none">
-              <div class="w-16 h-16 rounded-2xl bg-studio-900 border border-studio-800 flex items-center justify-center text-cyan-400 shadow-xl">
-                <i data-lucide="video" class="w-8 h-8"></i>
-              </div>
-              <p class="text-sm font-bold text-white">Broadcast Camera is Ready</p>
-              <p class="text-xs text-slate-400 max-w-sm">Click "Go Live" or choose a video source below to start streaming in 1080p Full HD.</p>
+              <button id="preview-btn-cam" class="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none" title="Toggle Camera">
+                <i data-lucide="video" class="w-5 h-5"></i>
+              </button>
             </div>
           </div>
-
-          <div class="p-4 bg-studio-900/95 border-t border-studio-800 flex flex-wrap items-center justify-between gap-3">
-            
-            <div class="flex items-center gap-2 flex-wrap">
-              <!-- Go Live Master Button -->
-              <button id="broadcastActionBtn" onclick="toggleBroadcastTransmission()" class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition flex items-center gap-2">
-                <i data-lucide="radio" class="w-4 h-4"></i>
-                <span id="broadcastActionLabel">Go Live (1080p)</span>
-              </button>
-
-              <!-- Source 1: Camera -->
-              <button onclick="selectVideoSource('camera')" id="srcCameraBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-1.5">
-                <i data-lucide="camera" class="w-4 h-4 text-emerald-400"></i>
-                <span>Webcam</span>
-              </button>
-
-              <!-- Source 2: Screen Share -->
-              <button onclick="selectVideoSource('screen')" id="srcScreenBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-1.5">
-                <i data-lucide="monitor" class="w-4 h-4 text-cyan-400"></i>
-                <span>Screen Share</span>
-              </button>
-
-              <!-- Source 3: Studio Test Pattern -->
-              <button onclick="selectVideoSource('smpte')" id="srcSmpteBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-1.5">
-                <i data-lucide="sliders" class="w-4 h-4 text-violet-400"></i>
-                <span>1080p SMPTE</span>
-              </button>
-            </div>
-
-            <!-- Quick Toggles -->
-            <div class="flex items-center gap-2">
-              <button onclick="toggleCameraMute()" id="muteCamBtn" class="p-2.5 rounded-xl bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Pause Video">
-                <i id="muteCamIcon" data-lucide="video" class="w-4 h-4 text-emerald-400"></i>
-              </button>
-              <button onclick="toggleAudioMute()" id="muteMicBtn" class="p-2.5 rounded-xl bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Mute Microphone">
-                <i id="muteMicIcon" data-lucide="mic" class="w-4 h-4 text-emerald-400"></i>
-              </button>
-              <button onclick="toggleFlipHorizontal()" class="p-2.5 rounded-xl bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Flip Mirror">
-                <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
-              </button>
-            </div>
-
-          </div>
+          <span class="text-xs text-slate-500 mt-2 text-center">Allow browser permissions for Camera and Microphone when prompted.</span>
         </div>
 
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 sm:p-5 shadow-xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          
-          <!-- Mic Preamp Slider -->
-          <div class="flex flex-col gap-1.5">
-            <div class="flex justify-between items-center text-xs">
-              <span class="text-slate-400 font-semibold">Microphone Gain</span>
-              <span id="gainValueText" class="font-mono text-cyan-400 font-bold">1.0x</span>
-            </div>
-            <input id="micGainSlider" type="range" min="0" max="3" step="0.05" value="1" oninput="setHostAudioGain(this.value)" class="accent-cyan-400 w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer mt-2">
-          </div>
-
-          <!-- Lower Third Title -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-400">Lower-Third Title</label>
-            <input id="lowerThirdTitleInput" type="text" value="WaveCast FHD Studio" oninput="updateLowerThirdContent()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-          </div>
-
-          <!-- Lower Third Subtitle -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-400">Ticker Subtitle</label>
-            <input id="lowerThirdSubInput" type="text" value="1080p 16:9 Full HD Stream" oninput="updateLowerThirdContent()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-          </div>
-
-        </div>
-
-        <!-- Connected Audience Roster -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 shadow-xl">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
-              <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
-              <span>Active Viewers Mesh</span>
-              <span id="hostViewerCountBadge" class="ml-2 px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">0 Viewers</span>
-            </div>
-            <span class="text-[11px] font-mono text-slate-400">WebRTC P2P</span>
-          </div>
-          <div id="hostViewerList" class="text-xs font-mono divide-y divide-studio-800 max-h-32 overflow-y-auto">
-            <div class="py-3 text-center text-slate-500 text-xs">
-              No viewers tuned in yet. Click "Split View" above or open in another window to test live audience reception!
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="lg:col-span-4 flex flex-col gap-5">
-        
-        <!-- Live Chat Card -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl flex flex-col h-[560px] shadow-xl overflow-hidden">
-          <div class="p-3.5 border-b border-studio-800 flex items-center justify-between bg-studio-950/70">
-            <div class="flex items-center gap-2">
-              <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i>
-              <span class="text-xs sm:text-sm font-semibold text-white">Broadcast Stage Chat</span>
-            </div>
-            <span class="text-[10px] font-mono text-cyan-400">Real-Time P2P</span>
-          </div>
-
-          <!-- Host Quick Reactions Toolbar -->
-          <div class="px-3 py-2 bg-studio-950/50 border-b border-studio-800 flex items-center justify-around">
-            <button onclick="dispatchReaction('🔥')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Fire">🔥</button>
-            <button onclick="dispatchReaction('👏')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Applause">👏</button>
-            <button onclick="dispatchReaction('❤️')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Heart">❤️</button>
-            <button onclick="dispatchReaction('🚀')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Rocket">🚀</button>
-            <button onclick="dispatchReaction('💡')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Idea">💡</button>
-            <button onclick="dispatchReaction('🎉')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Party">🎉</button>
-          </div>
-
-          <!-- Message History -->
-          <div id="hostChatBox" class="flex-1 p-3.5 overflow-y-auto space-y-2.5 text-xs font-sans">
-            <div class="p-2.5 rounded-xl bg-studio-950/70 border border-studio-800 text-slate-400 text-center text-[11px]">
-              Studio initialized. Start broadcasting and send chat messages to your viewers in real-time.
-            </div>
-          </div>
-
-          <!-- Chat Input -->
-          <form onsubmit="handleChatSubmit(event, 'host')" class="p-3 border-t border-studio-800 bg-studio-950/80 flex gap-2">
-            <input id="hostChatInput" type="text" placeholder="Type a message as host..." class="flex-1 bg-studio-900 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
-            <button type="submit" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center">
-              <i data-lucide="send" class="w-3.5 h-3.5"></i>
-            </button>
-          </form>
-        </div>
-
-      </div>
-
-    </div>
-
-    <div id="audienceSection" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
-      
-      <!-- Video Player Deck (8 Columns) -->
-      <div class="lg:col-span-8 flex flex-col gap-5">
-        
-        <!-- Audience Tuner Header -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <!-- Right: Join or Host Form -->
+        <div class="lg:col-span-5 bg-slate-900/90 border border-slate-800/90 p-6 md:p-8 rounded-2xl shadow-xl flex flex-col justify-center space-y-6">
           <div>
-            <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-              <i data-lucide="tv" class="w-5 h-5 text-cyan-400"></i>
-              Audience 1080p Live Player
-            </h2>
-            <p class="text-xs text-slate-400">Strict 16:9 Full HD WebRTC Receiver</p>
+            <h1 class="text-2xl font-bold text-white tracking-tight">Instant Video Calling</h1>
+            <p class="text-sm text-slate-400 mt-1">High-quality peer-to-peer audio, video and screen sharing with zero registration.</p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <button id="tuneInBtn" onclick="joinLiveBroadcast()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-cyan-600/30">
-              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-              <span id="tuneInBtnText">Tune In Now</span>
-            </button>
-            <button id="leaveStationBtn" onclick="leaveLiveBroadcast()" class="hidden px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition items-center gap-1.5">
-              <i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i>
-              <span>Leave</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Audience Video Container (Locked 16:9 1080p FHD Aspect Ratio) -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative group">
-          
-          <div class="viewport-16-9" id="audienceStage">
-            <!-- Inbound Remote Full HD Video (Muted by default to comply with browser autoplay) -->
-            <video id="remoteAudienceVideo" autoplay playsinline muted class="video-fit-16-9"></video>
-
-            <!-- Interactive Glassmorphic Tap to Unmute Overlay -->
-            <button id="unmutePillBtn" onclick="unmuteAudienceAudio()" class="hidden absolute top-4 left-4 z-30 px-4 py-2 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce transition">
-              <i data-lucide="volume-x" class="w-4 h-4"></i>
-              <span>Tap to Unmute Audio</span>
-            </button>
-
-            <!-- Disconnected / Standby Placeholder -->
-            <div id="audienceStandbyScreen" class="absolute inset-0 bg-studio-950 flex flex-col items-center justify-center text-center p-6 space-y-3 z-20">
-              <div class="w-16 h-16 rounded-2xl bg-studio-900 border border-studio-800 flex items-center justify-center text-slate-500 shadow-lg">
-                <i data-lucide="radio" class="w-8 h-8"></i>
-              </div>
-              <p id="audienceStandbyTitle" class="text-sm font-semibold text-slate-300">Station Waiting</p>
-              <p id="audienceStandbySub" class="text-xs text-slate-500 max-w-sm">Click "Tune In Now" above to connect to the live 1080p broadcast stream.</p>
+          <!-- User Name Input -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Your Display Name</label>
+            <div class="relative">
+              <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input id="input-username" type="text" placeholder="e.g. Alex" value="Guest Participant" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 placeholder-slate-500 transition" />
             </div>
           </div>
 
-          <!-- Video Deck Interactive Controls (Volume, Fullscreen, PiP) -->
-          <div class="p-3.5 bg-studio-950/90 border-t border-studio-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-            
-            <div class="flex items-center gap-3">
-              <button id="audienceMuteToggleBtn" onclick="toggleAudienceMute()" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
-                <i id="audienceVolIcon" data-lucide="volume-2" class="w-4 h-4 text-cyan-400"></i>
-              </button>
-              <input id="audienceVolumeSlider" type="range" min="0" max="1" step="0.05" value="0.9" oninput="setAudienceVolume(this.value)" class="accent-cyan-400 w-24 sm:w-32 h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer">
-              
-              <span id="audienceLiveTag" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-live"></span> LIVE 1080p FHD
-              </span>
+          <!-- Create New Room -->
+          <div class="space-y-3 pt-2">
+            <button id="btn-create-room" class="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-brand-500/25 transition">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Start New Meeting</span>
+            </button>
+          </div>
+
+          <div class="flex items-center my-1 text-slate-600 text-xs uppercase tracking-wider">
+            <div class="flex-1 border-b border-slate-800"></div>
+            <span class="px-3 text-slate-500 font-medium">Or join existing</span>
+            <div class="flex-1 border-b border-slate-800"></div>
+          </div>
+
+          <!-- Join Existing Room -->
+          <div class="space-y-3">
+            <div class="relative">
+              <i data-lucide="hash" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input id="input-room-code" type="text" placeholder="Enter Room ID or Peer ID" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 placeholder-slate-500 transition font-mono uppercase" />
             </div>
-
-            <div class="flex items-center gap-2">
-              <button onclick="requestPiP()" title="Picture-in-Picture" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
-                <i data-lucide="picture-in-picture-2" class="w-4 h-4"></i>
-              </button>
-              <button onclick="requestViewerFullscreen()" title="Fullscreen" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
-                <i data-lucide="maximize" class="w-4 h-4"></i>
-              </button>
-            </div>
-
+            <button id="btn-join-room" class="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700/90 text-slate-200 font-medium text-sm border border-slate-700 transition">
+              <i data-lucide="log-in" class="w-4 h-4"></i>
+              <span>Join Meeting</span>
+            </button>
           </div>
 
-        </div>
-
-        <!-- Telemetry & Stream Diagnostics -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-          <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">ICE STATUS</span>
-            <span id="telemetryIce" class="text-slate-300 font-bold">Standby</span>
-          </div>
-          <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">STREAM RTT</span>
-            <span id="telemetryLatency" class="text-cyan-400 font-bold">~ -- ms</span>
-          </div>
-          <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">ASPECT RATIO</span>
-            <span class="text-slate-200 font-bold">1920×1080 (16:9)</span>
-          </div>
-          <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">AUDIO CODEC</span>
-            <span class="text-emerald-400 font-bold">Opus 48kHz Stereo</span>
-          </div>
+          <!-- Peer status notification -->
+          <div id="lobby-status" class="text-xs text-center text-slate-500 h-4 transition"></div>
         </div>
 
       </div>
-
-      <div class="lg:col-span-4 flex flex-col gap-5">
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl flex flex-col h-[560px] shadow-xl overflow-hidden">
-          <div class="p-3.5 border-b border-studio-800 flex items-center justify-between bg-studio-950/70">
-            <div class="flex items-center gap-2">
-              <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i>
-              <span class="text-xs sm:text-sm font-semibold text-white">Live Audience Chat</span>
-            </div>
-            <span class="text-[10px] font-mono text-cyan-400">P2P Stream</span>
-          </div>
-
-          <!-- Audience Quick Reactions -->
-          <div class="px-3 py-2 bg-studio-950/50 border-b border-studio-800 flex items-center justify-around">
-            <button onclick="dispatchReaction('🔥')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Fire">🔥</button>
-            <button onclick="dispatchReaction('👏')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Applause">👏</button>
-            <button onclick="dispatchReaction('❤️')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Heart">❤️</button>
-            <button onclick="dispatchReaction('🚀')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Rocket">🚀</button>
-            <button onclick="dispatchReaction('💡')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Idea">💡</button>
-            <button onclick="dispatchReaction('🎉')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Party">🎉</button>
-          </div>
-
-          <!-- Viewer Chat Feed -->
-          <div id="audienceChatBox" class="flex-1 p-3.5 overflow-y-auto space-y-2.5 text-xs font-sans">
-            <div class="p-2.5 rounded-xl bg-studio-950/70 border border-studio-800 text-slate-400 text-center text-[11px]">
-              Tune in to the station to chat with the host and fellow viewers.
-            </div>
-          </div>
-
-          <!-- Chat Input Form -->
-          <form onsubmit="handleChatSubmit(event, 'audience')" class="p-3 border-t border-studio-800 bg-studio-950/80 flex gap-2">
-            <input id="audienceChatInput" type="text" placeholder="Type a message as viewer..." disabled
-                   class="flex-1 bg-studio-900 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50">
-            <button id="audienceSendBtn" type="submit" disabled class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50">
-              <i data-lucide="send" class="w-3.5 h-3.5"></i>
-            </button>
-          </form>
-        </div>
-      </div>
-
     </div>
+
+    <!-- VIEW 2: ACTIVE CALL STAGE -->
+    <div id="view-call" class="hidden flex-1 relative flex flex-col h-full overflow-hidden bg-slate-950">
+      
+      <!-- Video Grid Container -->
+      <div id="video-stage" class="flex-1 p-3 md:p-5 relative overflow-hidden flex items-center justify-center">
+        <div id="video-grid-container" class="video-grid">
+          <!-- Dynamic video cards will be inserted here -->
+        </div>
+      </div>
+
+      <footer class="h-20 bg-slate-900/90 border-t border-slate-800/80 px-4 flex items-center justify-between z-30 select-none">
+        
+        <!-- Left: Call meta / Invite button -->
+        <div class="hidden sm:flex items-center space-x-3 w-1/4">
+          <button id="btn-share-invite" class="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition" title="Copy meeting link to clipboard">
+            <i data-lucide="user-plus" class="w-4 h-4 text-brand-400"></i>
+            <span>Invite Others</span>
+          </button>
+        </div>
+
+        <!-- Center: Primary In-call Media Controls -->
+        <div class="flex items-center space-x-2.5 md:space-x-4 mx-auto">
+          
+          <!-- Mic toggle with visual speaking indicator -->
+          <div class="relative">
+            <button id="ctrl-mic" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none border border-slate-700/70" title="Toggle Microphone (M)">
+              <i data-lucide="mic" class="w-5 h-5"></i>
+            </button>
+            <div id="ctrl-mic-badge" class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full scale-0 transition-transform"></div>
+          </div>
+
+          <!-- Video Camera toggle -->
+          <button id="ctrl-cam" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none border border-slate-700/70" title="Toggle Camera (V)">
+            <i data-lucide="video" class="w-5 h-5"></i>
+          </button>
+
+          <!-- Screen Share toggle -->
+          <button id="ctrl-screen" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none border border-slate-700/70" title="Share Screen (S)">
+            <i data-lucide="monitor-up" class="w-5 h-5"></i>
+          </button>
+
+          <!-- Picture in Picture -->
+          <button id="ctrl-pip" class="hidden md:flex w-12 h-12 rounded-2xl items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition focus:outline-none border border-slate-700/70" title="Picture in Picture">
+            <i data-lucide="picture-in-picture-2" class="w-5 h-5"></i>
+          </button>
+
+          <!-- End Call Button -->
+          <button id="ctrl-end-call" class="w-12 md:w-16 h-12 rounded-2xl flex items-center justify-center bg-rose-600 hover:bg-rose-500 text-white transition focus:outline-none shadow-lg shadow-rose-600/30" title="Leave Call">
+            <i data-lucide="phone-off" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Right: Utility Panels (Chat, Fullscreen, Layout) -->
+        <div class="flex items-center justify-end space-x-2 md:space-x-3 w-1/4">
+          <button id="ctrl-chat-toggle" class="relative w-11 h-11 rounded-xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700/70" title="Open In-Call Chat">
+            <i data-lucide="message-square" class="w-5 h-5"></i>
+            <span id="chat-badge" class="absolute -top-1 -right-1 bg-brand-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+          </button>
+
+          <button id="ctrl-fullscreen" class="hidden sm:flex w-11 h-11 rounded-xl items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700/70" title="Toggle Fullscreen">
+            <i data-lucide="maximize" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+      </footer>
+    </div>
+
+    <aside id="chat-panel" class="w-80 md:w-96 border-l border-slate-800 bg-slate-900 flex flex-col h-full absolute right-0 top-0 bottom-0 z-30 transition-transform transform translate-x-full duration-200 ease-in-out shadow-2xl">
+      <!-- Chat Header -->
+      <div class="h-14 border-b border-slate-800 px-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="message-square" class="w-4 h-4 text-brand-400"></i>
+          <span class="font-semibold text-sm text-slate-200">In-Call Messages</span>
+        </div>
+        <button id="btn-close-chat" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Chat Messages Scroll Container -->
+      <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
+        <div class="text-center py-4 text-slate-500 text-[11px]">
+          Messages sent are visible to everyone currently connected in this room.
+        </div>
+      </div>
+
+      <!-- Chat Input Field -->
+      <form id="chat-form" class="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center space-x-2">
+        <input id="chat-input" type="text" placeholder="Send a message..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500" />
+        <button type="submit" class="p-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white transition focus:outline-none">
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </aside>
 
   </main>
 
-  <div id="helpModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <div class="bg-studio-900 border border-studio-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between border-b border-studio-800 pb-3">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="info" class="w-5 h-5 text-cyan-400"></i>
-          1080p FHD Live Broadcasting Guide
-        </h3>
-        <button onclick="toggleHelpModal(false)" class="p-1 text-slate-400 hover:text-white rounded-lg">
+  <div id="modal-settings" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 max-w-md w-full rounded-2xl p-6 space-y-5 shadow-2xl relative">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-brand-400"></i>
+          <h2 class="text-lg font-bold text-white">Device Settings</h2>
+        </div>
+        <button id="btn-close-settings" class="text-slate-400 hover:text-white p-1 rounded-lg">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
-        <p><strong class="text-cyan-400">1. Instant Split Mode Testing:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-cyan-300">Split View</code> in the top navigation bar. You will see both the Host Studio and the Audience Player side-by-side. Click "Go Live" on the left, then "Tune In Now" on the right. It connects immediately with zero setup!</p>
-        <p><strong class="text-emerald-400">2. Strict 1080p 16:9 Aspect Ratio:</strong> All master broadcast tracks are rendered through a locked 1920×1080 hardware compositor. Letterbox and pillarbox algorithms ensure your video is never stretched or distorted.</p>
-        <p><strong class="text-rose-400">3. Multiple Sources:</strong> Switch anytime between your Web Camera, Screen Share, or the built-in 1080p SMPTE Color Bar generator.</p>
-        <p><strong class="text-violet-400">4. Browser Autoplay Handling:</strong> Incoming audio begins muted to adhere to strict browser security policies. Tap the glowing cyan <code class="bg-studio-800 px-1 py-0.5 rounded text-violet-300">Tap to Unmute Audio</code> pill to start listening.</p>
+      <div class="space-y-4 text-sm">
+        <!-- Audio Input Device -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Microphone (Audio Input)</label>
+          <select id="select-audio-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"></select>
+        </div>
+
+        <!-- Video Input Device -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Camera (Video Input)</label>
+          <select id="select-video-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"></select>
+        </div>
+
+        <!-- Audio Output Device -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Speaker / Headphones</label>
+          <select id="select-audio-output" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"></select>
+          <p class="text-[11px] text-slate-500">Audio output selector is supported in Chromium browsers.</p>
+        </div>
       </div>
 
-      <div class="pt-2 flex justify-end">
-        <button onclick="toggleHelpModal(false)" class="px-4 py-2 bg-studio-800 hover:bg-studio-700 text-white rounded-xl text-xs font-semibold">Got It</button>
+      <div class="pt-3 border-t border-slate-800 flex justify-end">
+        <button id="btn-save-settings" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs">
+          Apply Settings
+        </button>
       </div>
     </div>
   </div>
 
+  <div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
   <script>
-    // Global Constants
-    const STORAGE_STATION_KEY = 'wavecast_fhd_room_id';
-    const DEFAULT_STATION_ID = 'wavecast-fhd';
-
-    // Application Master State
-    const appState = {
-      stationId: DEFAULT_STATION_ID,
-      activeView: 'broadcaster', // 'broadcaster' | 'audience' | 'split'
-      
-      // Unique Peer IDs for host and audience
-      hostPeerId: 'host-' + Math.random().toString(36).substring(2, 9),
-      audiencePeerId: 'viewer-' + Math.random().toString(36).substring(2, 9),
-
-      // Media State
-      isLive: false,
-      activeSource: 'camera', // 'camera' | 'screen' | 'smpte'
-      isCameraMuted: false,
+    /* Global Application State */
+    const state = {
+      peer: null,
+      peerId: null,
+      roomId: null,
+      username: 'Guest Participant',
+      localStream: null,
+      screenStream: null,
+      isScreenSharing: false,
       isAudioMuted: false,
-      isMirrored: false,
-
-      // Compositor & Master Stream
-      masterCanvasStream: null,
-      rawMediaStream: null,
-      broadcastAudioTrack: null,
-
-      // Audio DSP
+      isVideoMuted: false,
+      calls: {}, // remotePeerId -> { call, connection, stream, name, videoElement }
+      activeConnections: {}, // remotePeerId -> dataConnection
       audioContext: null,
-      gainNode: null,
-      synthOsc: null,
-      synthGain: null,
-
-      // Lower Third
-      lowerThirdTitle: 'WaveCast FHD Studio',
-      lowerThirdSub: '1080p 16:9 Full HD Stream',
-
-      // FPS Metrics
-      frameCount: 0,
-      lastFpsTime: performance.now(),
-      currentFps: 30,
-
-      // WebRTC Mesh (Broadcaster -> audience peers)
-      connectedViewers: new Map(), // peerId -> { pc, dc, pendingCandidates }
-
-      // Audience Receiver Peer
-      audiencePc: null,
-      audienceDc: null,
-      audiencePendingCandidates: [],
-
-      // Cross-Tab & Internal Signaling Bus
-      broadcastChannel: null
+      analyser: null,
+      unreadChatCount: 0,
+      isChatOpen: false
     };
 
-    // Initialize application on DOM ready
-    window.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
-      resolveInitialStationId();
-      initSignalingBus();
-      startMasterCompositorLoop();
-      autoStartCameraPreview();
-    });
+    /* DOM Selectors */
+    const viewLobby = document.getElementById('view-lobby');
+    const viewCall = document.getElementById('view-call');
+    const headerCallInfo = document.getElementById('header-call-info');
+    const currentRoomLabel = document.getElementById('current-room-label');
+    const participantCounter = document.getElementById('participant-counter');
+    const connDot = document.getElementById('conn-dot');
+    const connText = document.getElementById('conn-text');
+    const lobbyStatus = document.getElementById('lobby-status');
 
-    function resolveInitialStationId() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryRoom = urlParams.get('room');
-      const savedRoom = localStorage.getItem(STORAGE_STATION_KEY);
+    const previewVideo = document.getElementById('preview-video');
+    const previewAvatar = document.getElementById('preview-avatar');
+    const previewBtnMic = document.getElementById('preview-btn-mic');
+    const previewBtnCam = document.getElementById('preview-btn-cam');
+    const previewMicLevel = document.getElementById('preview-mic-level');
+    const inputUsername = document.getElementById('input-username');
+    const inputRoomCode = document.getElementById('input-room-code');
+    const btnCreateRoom = document.getElementById('btn-create-room');
+    const btnJoinRoom = document.getElementById('btn-join-room');
 
-      const resolved = (queryRoom && queryRoom.trim()) || (savedRoom && savedRoom.trim()) || DEFAULT_STATION_ID;
-      appState.stationId = sanitizeId(resolved);
+    const videoGridContainer = document.getElementById('video-grid-container');
 
-      const input = document.getElementById('roomNameInput');
-      if (input) input.value = appState.stationId;
+    const ctrlMic = document.getElementById('ctrl-mic');
+    const ctrlCam = document.getElementById('ctrl-cam');
+    const ctrlScreen = document.getElementById('ctrl-screen');
+    const ctrlPip = document.getElementById('ctrl-pip');
+    const ctrlEndCall = document.getElementById('ctrl-end-call');
+    const ctrlChatToggle = document.getElementById('ctrl-chat-toggle');
+    const ctrlFullscreen = document.getElementById('ctrl-fullscreen');
+    const btnShareInvite = document.getElementById('btn-share-invite');
+    const btnCopyHeader = document.getElementById('btn-copy-header');
 
-      if (window.location.hash === '#audience') {
-        setActiveViewMode('audience');
-      } else if (window.location.hash === '#split') {
-        setActiveViewMode('split');
-      }
-    }
+    const chatPanel = document.getElementById('chat-panel');
+    const btnCloseChat = document.getElementById('btn-close-chat');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessagesContainer = document.getElementById('chat-messages-container');
+    const chatBadge = document.getElementById('chat-badge');
 
-    function sanitizeId(str) {
-      return str.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').slice(0, 40);
-    }
+    const modalSettings = document.getElementById('modal-settings');
+    const btnOpenSettings = document.getElementById('btn-open-settings');
+    const btnCloseSettings = document.getElementById('btn-close-settings');
+    const btnSaveSettings = document.getElementById('btn-save-settings');
+    const selectAudioInput = document.getElementById('select-audio-input');
+    const selectVideoInput = document.getElementById('select-video-input');
+    const selectAudioOutput = document.getElementById('select-audio-output');
 
-    function saveAndApplyStationId() {
-      const input = document.getElementById('roomNameInput');
-      const sanitized = sanitizeId(input.value.trim() || DEFAULT_STATION_ID);
-      appState.stationId = sanitized;
-      input.value = sanitized;
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      const bg = type === 'error' ? 'bg-rose-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-800 border border-slate-700';
+      toast.className = `${bg} text-white text-xs px-4 py-3 rounded-xl shadow-lg flex items-center space-x-2 transition-all transform translate-y-2 opacity-0 pointer-events-auto`;
+      toast.innerHTML = `<span>${message}</span>`;
+      
+      const container = document.getElementById('toast-container');
+      container.appendChild(toast);
 
-      try {
-        localStorage.setItem(STORAGE_STATION_KEY, sanitized);
-      } catch (e) {}
-
-      const url = new URL(window.location);
-      url.searchParams.set('room', sanitized);
-      window.history.replaceState({}, '', url);
-
-      initSignalingBus();
-      appendSystemMessage(`Station ID changed to "${sanitized}". Reconnected mesh.`, 'host');
-      appendSystemMessage(`Station ID changed to "${sanitized}".`, 'audience');
-    }
-
-    function copyPermanentLink() {
-      const baseUrl = window.location.origin + window.location.pathname;
-      const shareUrl = `${baseUrl}?room=${appState.stationId}#audience`;
-
-      const temp = document.createElement('input');
-      temp.value = shareUrl;
-      document.body.appendChild(temp);
-      temp.select();
-      document.execCommand('copy');
-      document.body.removeChild(temp);
-
-      appendSystemMessage(`Permanent viewer link copied: ${shareUrl}`, 'host');
-    }
-
-    function initSignalingBus() {
-      if (appState.broadcastChannel) {
-        try { appState.broadcastChannel.close(); } catch(e){}
-      }
-
-      const channelName = `wavecast_mesh_${appState.stationId}`;
-      try {
-        if ('BroadcastChannel' in window) {
-          appState.broadcastChannel = new BroadcastChannel(channelName);
-          appState.broadcastChannel.onmessage = (event) => {
-            dispatchSignalMessage(event.data);
-          };
-        }
-      } catch (err) {
-        console.warn('BroadcastChannel fallback:', err);
-      }
-
-      // Storage event fallback for cross-tab iframe environments
-      window.addEventListener('storage', (e) => {
-        if (e.key === `sig_${appState.stationId}` && e.newValue) {
-          try {
-            const data = JSON.parse(e.newValue);
-            dispatchSignalMessage(data);
-          } catch(err){}
-        }
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
       });
 
-      // Internal in-memory event dispatch for single-page / split view
-      window.addEventListener('wavecast-internal-signal', (e) => {
-        if (e.detail) dispatchSignalMessage(e.detail);
-      });
-    }
-
-    function sendSignal(packet) {
-      const payload = {
-        ...packet,
-        stationId: appState.stationId,
-        timestamp: Date.now()
-      };
-
-      // 1. Cross-tab BroadcastChannel
-      if (appState.broadcastChannel) {
-        try { appState.broadcastChannel.postMessage(payload); } catch(e){}
-      }
-
-      // 2. Storage event fallback
-      try {
-        localStorage.setItem(`sig_${appState.stationId}`, JSON.stringify(payload));
-      } catch(e){}
-
-      // 3. In-memory dispatch for same-window / split mode
-      try {
-        window.dispatchEvent(new CustomEvent('wavecast-internal-signal', { detail: payload }));
-      } catch(e){}
-    }
-
-    function dispatchSignalMessage(msg) {
-      if (!msg || msg.stationId !== appState.stationId) return;
-
-      // Handle Host Incoming Signals (from audience peers)
-      if (msg.targetId === appState.hostPeerId || (!msg.targetId && msg.senderId !== appState.hostPeerId)) {
-        if (msg.type === 'join-request') {
-          handleHostReceiveViewerJoin(msg.senderId);
-        } else if (msg.type === 'answer') {
-          handleHostReceiveAnswer(msg.senderId, msg.sdp);
-        } else if (msg.type === 'ice-candidate') {
-          handleHostReceiveCandidate(msg.senderId, msg.candidate);
-        }
-      }
-
-      // Handle Audience Incoming Signals (from host)
-      if (msg.targetId === appState.audiencePeerId || (!msg.targetId && msg.senderId !== appState.audiencePeerId)) {
-        if (msg.type === 'offer') {
-          handleAudienceReceiveOffer(msg.senderId, msg.sdp);
-        } else if (msg.type === 'ice-candidate') {
-          handleAudienceReceiveCandidate(msg.candidate);
-        }
-      }
-
-      // Live Chat & Reactions Forwarding
-      if (msg.type === 'chat') {
-        appendChatMessage(msg.sender, msg.text, msg.role);
-      } else if (msg.type === 'reaction') {
-        renderFloatingReaction(msg.emoji);
-      }
-    }
-
-    function startMasterCompositorLoop() {
-      const canvas = document.getElementById('masterCompositorCanvas');
-      const ctx = canvas.getContext('2d');
-      const rawVideo = document.getElementById('cameraRawVideo');
-
-      const W = 1920;
-      const H = 1080;
-
-      function renderFrame(time) {
-        // Track FPS
-        appState.frameCount++;
-        if (time - appState.lastFpsTime >= 1000) {
-          appState.currentFps = appState.frameCount;
-          appState.frameCount = 0;
-          appState.lastFpsTime = time;
-          const fpsEl = document.getElementById('hostFpsText');
-          if (fpsEl) fpsEl.textContent = `${appState.currentFps} FPS`;
-        }
-
-        // Fill 1080p Canvas Base
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, W, H);
-
-        if (appState.activeSource === 'smpte') {
-          drawSmpte1080pPattern(ctx, W, H);
-        } else if (!appState.isCameraMuted && rawVideo.readyState >= 2) {
-          // Render Live Camera or Screen Share with Letterbox / Pillarbox centering
-          const vw = rawVideo.videoWidth || W;
-          const vh = rawVideo.videoHeight || H;
-          const videoRatio = vw / vh;
-          const canvasRatio = W / H;
-
-          let dw = W;
-          let dh = H;
-          let dx = 0;
-          let dy = 0;
-
-          if (videoRatio > canvasRatio) {
-            dw = W;
-            dh = W / videoRatio;
-            dy = (H - dh) / 2;
-          } else {
-            dh = H;
-            dw = H * videoRatio;
-            dx = (W - dw) / 2;
-          }
-
-          ctx.save();
-          if (appState.isMirrored && appState.activeSource === 'camera') {
-            ctx.translate(W, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(rawVideo, dx, dy, dw, dh);
-          } else {
-            ctx.drawImage(rawVideo, dx, dy, dw, dh);
-          }
-          ctx.restore();
-        } else {
-          // Video Off / Muted Screen
-          ctx.fillStyle = '#090d16';
-          ctx.fillRect(0, 0, W, H);
-          ctx.fillStyle = '#64748b';
-          ctx.font = 'bold 36px Inter, system-ui';
-          ctx.textAlign = 'center';
-          ctx.fillText('CAMERA FEED PAUSED', W / 2, H / 2);
-        }
-
-        // Draw Studio Lower-Third Graphic (Burned into 1080p Stream)
-        drawLowerThirdOverlay(ctx, W, H);
-
-        requestAnimationFrame(renderFrame);
-      }
-
-      requestAnimationFrame(renderFrame);
-
-      // Create Master 1080p MediaStream Track
-      appState.masterCanvasStream = canvas.captureStream(30);
-    }
-
-    function drawLowerThirdOverlay(ctx, W, H) {
-      const boxX = 60;
-      const boxY = H - 160;
-      const boxW = 760;
-      const boxH = 100;
-
-      ctx.save();
-      // Frosted Glass Box
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.9)';
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.85)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxW, boxH, 18);
-      ctx.fill();
-      ctx.stroke();
-
-      // Cyan Accent Strip
-      ctx.fillStyle = '#06b6d4';
-      ctx.fillRect(boxX + 20, boxY + 18, 6, boxH - 36);
-
-      // Header Text
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 30px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(appState.lowerThirdTitle.toUpperCase(), boxX + 42, boxY + 48);
-
-      // Subtitle
-      ctx.fillStyle = '#06b6d4';
-      ctx.font = '500 20px JetBrains Mono, monospace';
-      ctx.fillText(appState.lowerThirdSub, boxX + 42, boxY + 80);
-
-      ctx.restore();
-    }
-
-    function drawSmpte1080pPattern(ctx, W, H) {
-      const smpteBars = ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'];
-      const barW = W / 7;
-
-      // 75% Color Bars
-      for (let i = 0; i < 7; i++) {
-        ctx.fillStyle = smpteBars[i];
-        ctx.fillRect(i * barW, 0, barW, H * 0.7);
-      }
-
-      // Middle Transition
-      const midColors = ['#0000c0', '#131313', '#c000c0', '#131313', '#00c0c0', '#131313', '#c0c0c0'];
-      for (let i = 0; i < 7; i++) {
-        ctx.fillStyle = midColors[i];
-        ctx.fillRect(i * barW, H * 0.7, barW, H * 0.08);
-      }
-
-      // Dark Base Section
-      ctx.fillStyle = '#060913';
-      ctx.fillRect(0, H * 0.78, W, H * 0.22);
-
-      // High-precision Studio Timecode
-      ctx.fillStyle = '#06b6d4';
-      ctx.font = 'bold 44px JetBrains Mono, monospace';
-      ctx.textAlign = 'center';
-      const now = new Date();
-      ctx.fillText(`WAVECAST 1080p FULL HD • ${now.toTimeString().split(' ')[0]}`, W / 2, H * 0.88);
-
-      // Moving Sweep Tick for Latency Diagnostics
-      const sweepX = (Date.now() / 2.5) % W;
-      ctx.fillStyle = '#f43f5e';
-      ctx.fillRect(sweepX, H * 0.76, 50, 22);
-    }
-
-    async function autoStartCameraPreview() {
-      try {
-        await selectVideoSource('camera');
-      } catch (e) {
-        console.log('Camera auto-start notice, using SMPTE default:', e);
-        selectVideoSource('smpte');
-      }
-    }
-
-    async function selectVideoSource(type) {
-      appState.activeSource = type;
-      stopActiveSynthAudio();
-
-      const btnCam = document.getElementById('srcCameraBtn');
-      const btnScreen = document.getElementById('srcScreenBtn');
-      const btnSmpte = document.getElementById('srcSmpteBtn');
-
-      [btnCam, btnScreen, btnSmpte].forEach(b => b.classList.remove('bg-cyan-950', 'border-cyan-500', 'text-cyan-300'));
-
-      if (type === 'camera') {
-        btnCam.classList.add('bg-cyan-950', 'border-cyan-500', 'text-cyan-300');
-        document.getElementById('currentSourceBadge').textContent = 'Source: Camera 1080p';
-        await startCameraStream();
-      } else if (type === 'screen') {
-        btnScreen.classList.add('bg-cyan-950', 'border-cyan-500', 'text-cyan-300');
-        document.getElementById('currentSourceBadge').textContent = 'Source: Screen Share (1080p)';
-        await startScreenStream();
-      } else if (type === 'smpte') {
-        btnSmpte.classList.add('bg-cyan-950', 'border-cyan-500', 'text-cyan-300');
-        document.getElementById('currentSourceBadge').textContent = 'Source: SMPTE 1080p Generator';
-        startSmpteSynthAudio();
-      }
-
-      hotSwapBroadcasterTracks();
-    }
-
-    async function startCameraStream() {
-      if (appState.rawMediaStream) {
-        appState.rawMediaStream.getTracks().forEach(t => t.stop());
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            aspectRatio: { ideal: 1.7777777778 }
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: 48000
-          }
-        });
-
-        appState.rawMediaStream = stream;
-        const rawVideo = document.getElementById('cameraRawVideo');
-        rawVideo.srcObject = stream;
-        await rawVideo.play();
-
-        setupAudioDspPipeline(stream);
-        document.getElementById('hostStandbyOverlay').classList.add('hidden');
-      } catch (err) {
-        console.warn('Camera not available or denied:', err);
-        appendSystemMessage(`Camera note: ${err.message}. Switched to 1080p SMPTE Bars.`, 'host');
-        selectVideoSource('smpte');
-      }
-    }
-
-    async function startScreenStream() {
-      try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            aspectRatio: 1.7777777778,
-            cursor: 'always'
-          },
-          audio: true
-        });
-
-        appState.rawMediaStream = screenStream;
-        const rawVideo = document.getElementById('cameraRawVideo');
-        rawVideo.srcObject = screenStream;
-        await rawVideo.play();
-
-        setupAudioDspPipeline(screenStream);
-        document.getElementById('hostStandbyOverlay').classList.add('hidden');
-
-        screenStream.getVideoTracks()[0].onended = () => {
-          selectVideoSource('camera');
-        };
-      } catch (err) {
-        console.warn('Screen share cancelled:', err);
-        selectVideoSource('camera');
-      }
-    }
-
-    function setupAudioDspPipeline(stream) {
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!appState.audioContext) {
-          appState.audioContext = new AudioCtx({ sampleRate: 48000 });
-        }
-        if (appState.audioContext.state === 'suspended') {
-          appState.audioContext.resume().catch(() => {});
-        }
-
-        const source = appState.audioContext.createMediaStreamSource(stream);
-        appState.gainNode = appState.audioContext.createGain();
-        appState.gainNode.gain.value = parseFloat(document.getElementById('micGainSlider').value);
-
-        const dest = appState.audioContext.createMediaStreamDestination();
-        source.connect(appState.gainNode);
-        appState.gainNode.connect(dest);
-
-        appState.broadcastAudioTrack = dest.stream.getAudioTracks()[0];
-      } catch (e) {
-        console.warn('Audio DSP initialization notice:', e);
-        if (stream.getAudioTracks().length > 0) {
-          appState.broadcastAudioTrack = stream.getAudioTracks()[0];
-        }
-      }
-    }
-
-    function startSmpteSynthAudio() {
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!appState.audioContext) {
-          appState.audioContext = new AudioCtx({ sampleRate: 48000 });
-        }
-        if (appState.audioContext.state === 'suspended') {
-          appState.audioContext.resume().catch(() => {});
-        }
-
-        const osc = appState.audioContext.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, appState.audioContext.currentTime);
-
-        const gain = appState.audioContext.createGain();
-        gain.gain.setValueAtTime(0.04, appState.audioContext.currentTime);
-
-        const dest = appState.audioContext.createMediaStreamDestination();
-        osc.connect(gain);
-        gain.connect(dest);
-
-        osc.start();
-        appState.synthOsc = osc;
-        appState.synthGain = gain;
-        appState.broadcastAudioTrack = dest.stream.getAudioTracks()[0];
-        document.getElementById('hostStandbyOverlay').classList.add('hidden');
-      } catch (e) {}
-    }
-
-    function stopActiveSynthAudio() {
-      if (appState.synthOsc) {
-        try { appState.synthOsc.stop(); } catch(e){}
-        appState.synthOsc = null;
-      }
-    }
-
-    function setHostAudioGain(val) {
-      if (appState.gainNode && appState.audioContext) {
-        appState.gainNode.gain.setValueAtTime(parseFloat(val), appState.audioContext.currentTime);
-      }
-      document.getElementById('gainValueText').textContent = `${parseFloat(val).toFixed(2)}x`;
-    }
-
-    const RTC_CONFIGURATION = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' }
-      ]
-    };
-
-    function toggleBroadcastTransmission() {
-      if (!appState.isLive) {
-        appState.isLive = true;
-        document.getElementById('broadcastActionBtn').classList.replace('bg-rose-600', 'bg-slate-700');
-        document.getElementById('broadcastActionLabel').textContent = 'End Broadcast';
-
-        const dot = document.getElementById('hostStatusDot');
-        const text = document.getElementById('hostStatusText');
-        const badge = document.getElementById('hostStatusBadge');
-
-        dot.className = 'w-2 h-2 rounded-full bg-rose-500 pulse-live';
-        text.textContent = 'LIVE ON AIR (1080p FHD)';
-        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40';
-
-        appendSystemMessage(`Broadcasting LIVE in 1080p Full HD on station "${appState.stationId}"!`, 'host');
-
-        // Notify potential viewers
-        sendSignal({
-          type: 'host-live-ping',
-          senderId: appState.hostPeerId
-        });
-      } else {
-        appState.isLive = false;
-        document.getElementById('broadcastActionBtn').classList.replace('bg-slate-700', 'bg-rose-600');
-        document.getElementById('broadcastActionLabel').textContent = 'Go Live (1080p)';
-
-        const dot = document.getElementById('hostStatusDot');
-        const text = document.getElementById('hostStatusText');
-        const badge = document.getElementById('hostStatusBadge');
-
-        dot.className = 'w-2 h-2 rounded-full bg-slate-500';
-        text.textContent = 'STANDBY PREVIEW';
-        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700';
-
-        appendSystemMessage('Broadcast stopped. Station is now in standby.', 'host');
-      }
-    }
-
-    async function handleHostReceiveViewerJoin(viewerPeerId) {
-      // Create new RTCPeerConnection for this viewer
-      if (appState.connectedViewers.has(viewerPeerId)) {
-        try { appState.connectedViewers.get(viewerPeerId).pc.close(); } catch(e){}
-      }
-
-      const pc = new RTCPeerConnection(RTC_CONFIGURATION);
-      const dc = pc.createDataChannel('studio_chat', { ordered: true });
-
-      const viewerRecord = {
-        pc,
-        dc,
-        pendingCandidates: []
-      };
-      appState.connectedViewers.set(viewerPeerId, viewerRecord);
-      updateHostViewerRoster();
-
-      // Add Master 1080p Canvas Video Track
-      if (appState.masterCanvasStream) {
-        const videoTrack = appState.masterCanvasStream.getVideoTracks()[0];
-        if (videoTrack) pc.addTrack(videoTrack, appState.masterCanvasStream);
-      }
-
-      // Add Broadcast Audio Track (Mic or Synth)
-      if (appState.broadcastAudioTrack) {
-        pc.addTrack(appState.broadcastAudioTrack, appState.masterCanvasStream);
-      } else {
-        // Fallback silent audio track
-        const silentTrack = createSilentAudioTrack();
-        if (silentTrack) pc.addTrack(silentTrack, appState.masterCanvasStream);
-      }
-
-      // ICE Candidates
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          sendSignal({
-            type: 'ice-candidate',
-            senderId: appState.hostPeerId,
-            targetId: viewerPeerId,
-            candidate: e.candidate.toJSON()
-          });
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-          appState.connectedViewers.delete(viewerPeerId);
-          updateHostViewerRoster();
-        }
-      };
-
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        sendSignal({
-          type: 'offer',
-          senderId: appState.hostPeerId,
-          targetId: viewerPeerId,
-          sdp: pc.localDescription
-        });
-      } catch (err) {
-        console.error('Error creating host offer:', err);
-      }
-    }
-
-    function createSilentAudioTrack() {
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        gain.gain.value = 0;
-        const dest = ctx.createMediaStreamDestination();
-        osc.connect(gain);
-        gain.connect(dest);
-        osc.start();
-        return dest.stream.getAudioTracks()[0];
-      } catch(e) {
-        return null;
-      }
-    }
-
-    async function handleHostReceiveAnswer(viewerPeerId, sdp) {
-      const record = appState.connectedViewers.get(viewerPeerId);
-      if (!record || !record.pc) return;
-
-      try {
-        await record.pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        // Flush any candidates received before answer arrived
-        while (record.pendingCandidates.length > 0) {
-          const cand = record.pendingCandidates.shift();
-          try { await record.pc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e){}
-        }
-      } catch (err) {
-        console.warn('Host setRemoteDescription notice:', err);
-      }
-    }
-
-    async function handleHostReceiveCandidate(viewerPeerId, candidate) {
-      const record = appState.connectedViewers.get(viewerPeerId);
-      if (!record || !record.pc) return;
-
-      if (!record.pc.remoteDescription) {
-        record.pendingCandidates.push(candidate);
-      } else {
-        try {
-          await record.pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch(e){}
-      }
-    }
-
-    function hotSwapBroadcasterTracks() {
-      if (!appState.masterCanvasStream) return;
-      const vTrack = appState.masterCanvasStream.getVideoTracks()[0];
-      const aTrack = appState.broadcastAudioTrack;
-
-      appState.connectedViewers.forEach(({ pc }) => {
-        if (!pc) return;
-        pc.getSenders().forEach(sender => {
-          if (sender.track && sender.track.kind === 'video' && vTrack) {
-            sender.replaceTrack(vTrack).catch(e => console.warn(e));
-          }
-          if (sender.track && sender.track.kind === 'audio' && aTrack) {
-            sender.replaceTrack(aTrack).catch(e => console.warn(e));
-          }
-        });
-      });
-    }
-
-    async function joinLiveBroadcast() {
-      document.getElementById('tuneInBtnText').textContent = 'Connecting...';
-      document.getElementById('tuneInBtn').disabled = true;
-      document.getElementById('telemetryIce').textContent = 'CONNECTING...';
-
-      // Clean up previous connection
-      if (appState.audiencePc) {
-        try { appState.audiencePc.close(); } catch(e){}
-      }
-
-      const pc = new RTCPeerConnection(RTC_CONFIGURATION);
-      appState.audiencePc = pc;
-
-      // Handle inbound Full HD tracks
-      pc.ontrack = (event) => {
-        const videoEl = document.getElementById('remoteAudienceVideo');
-        if (event.streams && event.streams[0]) {
-          videoEl.srcObject = event.streams[0];
-        } else {
-          if (!videoEl.srcObject) videoEl.srcObject = new MediaStream();
-          videoEl.srcObject.addTrack(event.track);
-        }
-
-        // Guaranteed autoplay: begin muted
-        videoEl.muted = true;
-        videoEl.play().then(() => {
-          document.getElementById('audienceStandbyScreen').classList.add('hidden');
-          document.getElementById('unmutePillBtn').classList.remove('hidden');
-          document.getElementById('audienceLiveTag').classList.replace('hidden', 'inline-flex');
-        }).catch(err => console.warn('Autoplay notice:', err));
-      };
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          sendSignal({
-            type: 'ice-candidate',
-            senderId: appState.audiencePeerId,
-            targetId: appState.hostPeerId,
-            candidate: e.candidate.toJSON()
-          });
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        const state = pc.iceConnectionState;
-        const statEl = document.getElementById('telemetryIce');
-        if (statEl) statEl.textContent = state.toUpperCase();
-
-        if (state === 'connected' || state === 'completed') {
-          const lat = document.getElementById('telemetryLatency');
-          if (lat) lat.textContent = '< 5 ms';
-        }
-      };
-
-      // Request connection from Host
-      sendSignal({
-        type: 'join-request',
-        senderId: appState.audiencePeerId,
-        targetId: appState.hostPeerId
-      });
-
-      // Update UI buttons
-      document.getElementById('tuneInBtn').classList.add('hidden');
-      document.getElementById('leaveStationBtn').classList.replace('hidden', 'flex');
-      document.getElementById('audienceChatInput').disabled = false;
-      document.getElementById('audienceSendBtn').disabled = false;
-
-      // Same-Window Instant Bridge: if Host is live on the same tab, connect immediately
       setTimeout(() => {
-        const videoEl = document.getElementById('remoteAudienceVideo');
-        if (!videoEl.srcObject && appState.masterCanvasStream) {
-          videoEl.srcObject = appState.masterCanvasStream;
-          videoEl.muted = true;
-          videoEl.play().catch(() => {});
-          document.getElementById('audienceStandbyScreen').classList.add('hidden');
-          document.getElementById('unmutePillBtn').classList.remove('hidden');
-          document.getElementById('telemetryIce').textContent = 'CONNECTED (Loopback)';
-          document.getElementById('audienceLiveTag').classList.replace('hidden', 'inline-flex');
-        }
-      }, 400);
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
     }
 
-    async function handleAudienceReceiveOffer(hostPeerId, sdp) {
-      if (!appState.audiencePc) return;
-
+    /* Clipboard Copy Utility */
+    function copyTextFallback(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
       try {
-        await appState.audiencePc.setRemoteDescription(new RTCSessionDescription(sdp));
+        document.execCommand('copy');
+        showToast('Room link copied to clipboard!', 'success');
+      } catch (err) {
+        showToast('Could not copy link automatically.', 'error');
+      }
+      document.body.removeChild(textArea);
+    }
 
-        // Flush queued candidates
-        while (appState.audiencePendingCandidates.length > 0) {
-          const cand = appState.audiencePendingCandidates.shift();
-          try { await appState.audiencePc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e){}
+    function copyRoomInvitation() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', state.roomId || state.peerId);
+      copyTextFallback(url.toString());
+    }
+
+    async function initLocalMedia(audioSourceId = null, videoSourceId = null) {
+      try {
+        const constraints = {
+          audio: audioSourceId ? { deviceId: { exact: audioSourceId } } : true,
+          video: videoSourceId ? { deviceId: { exact: videoSourceId }, width: { ideal: 1280 }, height: { ideal: 720 } } : { width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+
+        if (state.localStream) {
+          state.localStream.getTracks().forEach(track => track.stop());
         }
 
-        const answer = await appState.audiencePc.createAnswer();
-        await appState.audiencePc.setLocalDescription(answer);
+        state.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        previewVideo.srcObject = state.localStream;
 
-        sendSignal({
-          type: 'answer',
-          senderId: appState.audiencePeerId,
-          targetId: hostPeerId,
-          sdp: appState.audiencePc.localDescription
+        // Hook up audio activity meter
+        initAudioMeter(state.localStream);
+        await enumerateDevices();
+        updateMediaButtonStates();
+      } catch (err) {
+        console.warn('Initial media access issue:', err);
+        showToast('Camera or Microphone access was denied or unavailable.', 'error');
+        // Provide audio only or dummy stream if permissions denied
+        try {
+          state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          previewVideo.srcObject = state.localStream;
+          state.isVideoMuted = true;
+          updateMediaButtonStates();
+        } catch (e) {
+          console.error('All media streams failed:', e);
+        }
+      }
+    }
+
+    async function enumerateDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        
+        selectAudioInput.innerHTML = '';
+        selectVideoInput.innerHTML = '';
+        selectAudioOutput.innerHTML = '';
+
+        devices.forEach(device => {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          if (device.kind === 'audioinput') {
+            option.text = device.label || `Microphone ${selectAudioInput.length + 1}`;
+            selectAudioInput.appendChild(option);
+          } else if (device.kind === 'videoinput') {
+            option.text = device.label || `Camera ${selectVideoInput.length + 1}`;
+            selectVideoInput.appendChild(option);
+          } else if (device.kind === 'audiooutput') {
+            option.text = device.label || `Speaker ${selectAudioOutput.length + 1}`;
+            selectAudioOutput.appendChild(option);
+          }
         });
       } catch (err) {
-        console.error('Error handling host offer in audience:', err);
+        console.error('Failed enumerating devices:', err);
       }
     }
 
-    async function handleAudienceReceiveCandidate(candidate) {
-      if (!appState.audiencePc || !appState.audiencePc.remoteDescription) {
-        appState.audiencePendingCandidates.push(candidate);
-      } else {
+    function initAudioMeter(stream) {
+      try {
+        if (state.audioContext) {
+          state.audioContext.close();
+        }
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        state.audioContext = new AudioContextClass();
+        state.analyser = state.audioContext.createAnalyser();
+        state.analyser.fftSize = 64;
+
+        const source = state.audioContext.createMediaStreamSource(stream);
+        source.connect(state.analyser);
+
+        const dataArray = new Uint8Array(state.analyser.frequencyBinCount);
+
+        function updateMeter() {
+          if (!state.analyser || state.isAudioMuted) {
+            if (previewMicLevel) previewMicLevel.style.width = '0%';
+            requestAnimationFrame(updateMeter);
+            return;
+          }
+          state.analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / dataArray.length;
+          const percentage = Math.min(100, Math.round((average / 128) * 100));
+
+          if (previewMicLevel) {
+            previewMicLevel.style.width = `${percentage}%`;
+          }
+
+          // In call local tile speaking ring
+          const localSpeakingBadge = document.getElementById('local-speaking-ring');
+          if (localSpeakingBadge) {
+            if (percentage > 15) {
+              localSpeakingBadge.classList.remove('opacity-0');
+            } else {
+              localSpeakingBadge.classList.add('opacity-0');
+            }
+          }
+
+          requestAnimationFrame(updateMeter);
+        }
+        updateMeter();
+      } catch (e) {
+        console.warn('Web Audio meter not supported or blocked:', e);
+      }
+    }
+
+    function toggleAudio() {
+      if (!state.localStream) return;
+      const audioTracks = state.localStream.getAudioTracks();
+      if (audioTracks.length === 0) return;
+
+      state.isAudioMuted = !state.isAudioMuted;
+      audioTracks.forEach(track => {
+        track.enabled = !state.isAudioMuted;
+      });
+
+      // Broadcast audio state change to peers via data channel
+      broadcastData({
+        type: 'media_state',
+        audio: !state.isAudioMuted,
+        video: !state.isVideoMuted,
+        peerId: state.peerId
+      });
+
+      updateMediaButtonStates();
+    }
+
+    function toggleVideo() {
+      if (!state.localStream) return;
+      const videoTracks = state.localStream.getVideoTracks();
+      if (videoTracks.length === 0) return;
+
+      state.isVideoMuted = !state.isVideoMuted;
+      videoTracks.forEach(track => {
+        track.enabled = !state.isVideoMuted;
+      });
+
+      // Update preview and in-call local video views
+      previewAvatar.classList.toggle('hidden', !state.isVideoMuted);
+
+      const localVideoElem = document.getElementById('video-local');
+      const localAvatar = document.getElementById('avatar-local');
+      if (localVideoElem && localAvatar) {
+        localAvatar.classList.toggle('hidden', !state.isVideoMuted);
+      }
+
+      broadcastData({
+        type: 'media_state',
+        audio: !state.isAudioMuted,
+        video: !state.isVideoMuted,
+        peerId: state.peerId
+      });
+
+      updateMediaButtonStates();
+    }
+
+    function updateMediaButtonStates() {
+      // Audio Preview & In-Call Icons
+      const audioIconName = state.isAudioMuted ? 'mic-off' : 'mic';
+      const videoIconName = state.isVideoMuted ? 'video-off' : 'video';
+
+      // Lobby Preview Buttons
+      previewBtnMic.className = `p-2.5 rounded-full transition focus:outline-none ${state.isAudioMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'}`;
+      previewBtnMic.innerHTML = `<i data-lucide="${audioIconName}" class="w-5 h-5"></i>`;
+
+      previewBtnCam.className = `p-2.5 rounded-full transition focus:outline-none ${state.isVideoMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'}`;
+      previewBtnCam.innerHTML = `<i data-lucide="${videoIconName}" class="w-5 h-5"></i>`;
+
+      // In-Call Controls
+      ctrlMic.className = `w-12 h-12 rounded-2xl flex items-center justify-center transition focus:outline-none border ${state.isAudioMuted ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700/70'}`;
+      ctrlMic.innerHTML = `<i data-lucide="${audioIconName}" class="w-5 h-5"></i>`;
+
+      ctrlCam.className = `w-12 h-12 rounded-2xl flex items-center justify-center transition focus:outline-none border ${state.isVideoMuted ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700/70'}`;
+      ctrlCam.innerHTML = `<i data-lucide="${videoIconName}" class="w-5 h-5"></i>`;
+
+      // Screen Share Control Button
+      ctrlScreen.className = `w-12 h-12 rounded-2xl flex items-center justify-center transition focus:outline-none border ${state.isScreenSharing ? 'bg-brand-600 border-brand-400 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700/70'}`;
+
+      lucide.createIcons();
+    }
+
+    async function toggleScreenShare() {
+      if (!state.isScreenSharing) {
         try {
-          await appState.audiencePc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch(e){}
-      }
-    }
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: false
+          });
 
-    function leaveLiveBroadcast() {
-      if (appState.audiencePc) {
-        try { appState.audiencePc.close(); } catch(e){}
-        appState.audiencePc = null;
-      }
+          state.screenStream = displayStream;
+          const screenVideoTrack = displayStream.getVideoTracks()[0];
 
-      const videoEl = document.getElementById('remoteAudienceVideo');
-      videoEl.srcObject = null;
+          // Handle system "Stop sharing" chrome bar
+          screenVideoTrack.onended = () => {
+            stopScreenSharing();
+          };
 
-      document.getElementById('audienceStandbyScreen').classList.remove('hidden');
-      document.getElementById('unmutePillBtn').classList.add('hidden');
-      document.getElementById('audienceLiveTag').classList.replace('inline-flex', 'hidden');
-      document.getElementById('tuneInBtn').classList.remove('hidden');
-      document.getElementById('tuneInBtn').disabled = false;
-      document.getElementById('tuneInBtnText').textContent = 'Tune In Now';
-      document.getElementById('leaveStationBtn').classList.replace('flex', 'hidden');
-      document.getElementById('audienceChatInput').disabled = true;
-      document.getElementById('audienceSendBtn').disabled = true;
-      document.getElementById('telemetryIce').textContent = 'Standby';
-    }
+          // Swap track on all active peer peerConnections
+          replaceVideoTrackInCalls(screenVideoTrack);
 
-    function unmuteAudienceAudio() {
-      const videoEl = document.getElementById('remoteAudienceVideo');
-      videoEl.muted = false;
-      videoEl.volume = parseFloat(document.getElementById('audienceVolumeSlider').value);
+          // Update local view to screen
+          const localVideoElem = document.getElementById('video-local');
+          if (localVideoElem) {
+            localVideoElem.srcObject = displayStream;
+            localVideoElem.classList.remove('video-mirror');
+          }
 
-      document.getElementById('unmutePillBtn').classList.add('hidden');
-      const icon = document.getElementById('audienceVolIcon');
-      if (icon) icon.setAttribute('data-lucide', 'volume-2');
-      lucide.createIcons();
-    }
-
-    function toggleAudienceMute() {
-      const videoEl = document.getElementById('remoteAudienceVideo');
-      const icon = document.getElementById('audienceVolIcon');
-      if (videoEl.muted) {
-        videoEl.muted = false;
-        icon.setAttribute('data-lucide', 'volume-2');
+          state.isScreenSharing = true;
+          updateMediaButtonStates();
+          showToast('Screen sharing started', 'success');
+        } catch (err) {
+          console.warn('Screen share canceled or denied:', err);
+        }
       } else {
-        videoEl.muted = true;
-        icon.setAttribute('data-lucide', 'volume-x');
-      }
-      lucide.createIcons();
-    }
-
-    function setAudienceVolume(val) {
-      const videoEl = document.getElementById('remoteAudienceVideo');
-      videoEl.volume = parseFloat(val);
-      videoEl.muted = false;
-      const icon = document.getElementById('audienceVolIcon');
-      icon.setAttribute('data-lucide', 'volume-2');
-      lucide.createIcons();
-    }
-
-    async function requestPiP() {
-      const videoEl = document.getElementById('remoteAudienceVideo');
-      if (document.pictureInPictureElement) {
-        document.exitPictureInPicture();
-      } else if (document.pictureInPictureEnabled && videoEl) {
-        try { await videoEl.requestPictureInPicture(); } catch(e){}
+        stopScreenSharing();
       }
     }
 
-    function requestViewerFullscreen() {
-      const videoEl = document.getElementById('remoteAudienceVideo');
-      if (!document.fullscreenElement) {
-        videoEl.requestFullscreen().catch(err => console.error(err));
-      } else {
-        document.exitFullscreen();
+    function stopScreenSharing() {
+      if (state.screenStream) {
+        state.screenStream.getTracks().forEach(t => t.stop());
+        state.screenStream = null;
       }
-    }
+      state.isScreenSharing = false;
 
-    function handleChatSubmit(e, role) {
-      e.preventDefault();
-      const input = role === 'host' ? document.getElementById('hostChatInput') : document.getElementById('audienceChatInput');
-      const text = input.value.trim();
-      if (!text) return;
-
-      const senderName = role === 'host' ? 'Host 🎥' : `Viewer-${appState.audiencePeerId.substring(7)}`;
-
-      appendChatMessage(senderName, text, role);
-      sendSignal({
-        type: 'chat',
-        sender: senderName,
-        text,
-        role
-      });
-
-      input.value = '';
-    }
-
-    function appendChatMessage(sender, text, role) {
-      const hostBox = document.getElementById('hostChatBox');
-      const audienceBox = document.getElementById('audienceChatBox');
-
-      const isHostSender = sender.includes('Host');
-      const msgNode = document.createElement('div');
-      msgNode.className = `p-2.5 rounded-xl border text-xs max-w-[88%] ${
-        isHostSender
-          ? 'ml-auto bg-cyan-950/70 border-cyan-800 text-cyan-100'
-          : 'mr-auto bg-studio-800 border-studio-700 text-slate-200'
-      }`;
-
-      const meta = document.createElement('div');
-      meta.className = 'text-[10px] font-mono font-bold text-slate-400 mb-0.5 flex items-center justify-between gap-2';
-      meta.innerHTML = `<span>${sender}</span> <span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
-      msgNode.appendChild(meta);
-
-      const body = document.createElement('div');
-      body.className = 'break-words';
-      body.textContent = text;
-      msgNode.appendChild(body);
-
-      if (hostBox) {
-        hostBox.appendChild(msgNode.cloneNode(true));
-        hostBox.scrollTop = hostBox.scrollHeight;
+      // Restore camera track to all peers
+      if (state.localStream) {
+        const cameraTrack = state.localStream.getVideoTracks()[0];
+        if (cameraTrack) {
+          replaceVideoTrackInCalls(cameraTrack);
+        }
+        const localVideoElem = document.getElementById('video-local');
+        if (localVideoElem) {
+          localVideoElem.srcObject = state.localStream;
+          localVideoElem.classList.add('video-mirror');
+        }
       }
-      if (audienceBox) {
-        audienceBox.appendChild(msgNode);
-        audienceBox.scrollTop = audienceBox.scrollHeight;
-      }
+
+      updateMediaButtonStates();
+      showToast('Screen sharing stopped', 'info');
     }
 
-    function appendSystemMessage(text, targetRole) {
-      const box = targetRole === 'host' ? document.getElementById('hostChatBox') : document.getElementById('audienceChatBox');
-      if (!box) return;
-
-      const sys = document.createElement('div');
-      sys.className = 'p-2 rounded-xl bg-studio-950/90 border border-studio-800 text-slate-400 italic text-center text-[11px] w-full';
-      sys.textContent = text;
-      box.appendChild(sys);
-      box.scrollTop = box.scrollHeight;
-    }
-
-    function dispatchReaction(emoji) {
-      renderFloatingReaction(emoji);
-      sendSignal({
-        type: 'reaction',
-        emoji
+    function replaceVideoTrackInCalls(newVideoTrack) {
+      Object.values(state.calls).forEach(({ call }) => {
+        if (call && call.peerConnection) {
+          const senders = call.peerConnection.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(newVideoTrack);
+          }
+        }
       });
     }
 
-    function renderFloatingReaction(emoji) {
-      const surface = document.getElementById('reactionSurface');
-      const el = document.createElement('div');
-      el.className = 'floating-emoji text-3xl sm:text-4xl select-none';
-      el.textContent = emoji;
+    function initializePeer(targetId = null) {
+      return new Promise((resolve, reject) => {
+        connText.textContent = 'Connecting...';
+        connDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
 
-      const randX = Math.random() * 80 + 10;
-      el.style.left = `${randX}%`;
-      el.style.bottom = '12%';
-      surface.appendChild(el);
+        // Initialize PeerJS with public cloud server
+        const peer = targetId ? new Peer(targetId) : new Peer();
 
-      setTimeout(() => el.remove(), 2200);
-
-      if (['🚀', '🔥', '🎉'].includes(emoji)) {
-        confetti({
-          particleCount: 16,
-          spread: 45,
-          origin: { y: 0.85, x: randX / 100 }
+        peer.on('open', (id) => {
+          state.peer = peer;
+          state.peerId = id;
+          connDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          connText.textContent = 'Connected';
+          resolve(id);
         });
+
+        peer.on('error', (err) => {
+          console.error('PeerJS error:', err);
+          if (err.type === 'unavailable-id') {
+            // Target room ID is taken, connect to it as participant
+            resolve(targetId);
+          } else {
+            showToast(`Peer connection error: ${err.type}`, 'error');
+            reject(err);
+          }
+        });
+
+        // Incoming Calls Handling
+        peer.on('call', (incomingCall) => {
+          const streamToSend = state.isScreenSharing && state.screenStream ? state.screenStream : state.localStream;
+          incomingCall.answer(streamToSend);
+
+          setupCallListeners(incomingCall);
+        });
+
+        // Incoming Data Connection Handling (Chat & Sync)
+        peer.on('connection', (conn) => {
+          setupDataConnection(conn);
+        });
+      });
+    }
+
+    function setupCallListeners(mediaCall) {
+      const remotePeerId = mediaCall.peer;
+
+      mediaCall.on('stream', (remoteStream) => {
+        addRemoteParticipantTile(remotePeerId, remoteStream);
+      });
+
+      mediaCall.on('close', () => {
+        removeParticipant(remotePeerId);
+      });
+
+      mediaCall.on('error', (err) => {
+        console.error('MediaCall error:', err);
+        removeParticipant(remotePeerId);
+      });
+
+      if (!state.calls[remotePeerId]) {
+        state.calls[remotePeerId] = { call: mediaCall, stream: null };
+      } else {
+        state.calls[remotePeerId].call = mediaCall;
+      }
+      updateParticipantCount();
+    }
+
+    function setupDataConnection(conn) {
+      state.activeConnections[conn.peer] = conn;
+
+      conn.on('open', () => {
+        // Send our display identity and initial state
+        conn.send({
+          type: 'handshake',
+          name: state.username,
+          peerId: state.peerId,
+          audio: !state.isAudioMuted,
+          video: !state.isVideoMuted
+        });
+      });
+
+      conn.on('data', (data) => {
+        handleIncomingData(data, conn.peer);
+      });
+
+      conn.on('close', () => {
+        delete state.activeConnections[conn.peer];
+        removeParticipant(conn.peer);
+      });
+    }
+
+    function handleIncomingData(data, remotePeerId) {
+      if (data.type === 'handshake') {
+        if (state.calls[remotePeerId]) {
+          state.calls[remotePeerId].name = data.name;
+        }
+        updateParticipantLabel(remotePeerId, data.name);
+        showToast(`${data.name || 'A participant'} joined the call`, 'info');
+      } else if (data.type === 'chat') {
+        appendChatMessage(data.name, data.text, data.time, false);
+      } else if (data.type === 'media_state') {
+        const remoteVideoElem = document.getElementById(`video-${remotePeerId}`);
+        const remoteAvatar = document.getElementById(`avatar-${remotePeerId}`);
+        if (remoteAvatar) {
+          remoteAvatar.classList.toggle('hidden', data.video);
+        }
       }
     }
 
-    function setActiveViewMode(mode) {
-      appState.activeView = mode;
+    function broadcastData(payload) {
+      Object.values(state.activeConnections).forEach(conn => {
+        if (conn && conn.open) {
+          conn.send(payload);
+        }
+      });
+    }
 
-      const bSec = document.getElementById('broadcasterSection');
-      const aSec = document.getElementById('audienceSection');
+    async function startMeeting(isHost, targetRoomId = null) {
+      state.username = inputUsername.value.trim() || 'Guest Participant';
+      lobbyStatus.textContent = 'Joining secure meeting...';
 
-      const tabB = document.getElementById('viewTabBroadcaster');
-      const tabA = document.getElementById('viewTabAudience');
-      const tabS = document.getElementById('viewTabSplit');
+      try {
+        if (isHost) {
+          // Generate a clean room code e.g. "nx-abc-xyz"
+          const code = 'nx-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 6);
+          await initializePeer(code);
+          state.roomId = code;
+        } else {
+          const roomToJoin = (targetRoomId || inputRoomCode.value).trim().toLowerCase();
+          if (!roomToJoin) {
+            showToast('Please enter a valid Room ID', 'error');
+            lobbyStatus.textContent = '';
+            return;
+          }
+          await initializePeer();
+          state.roomId = roomToJoin;
 
-      [tabB, tabA, tabS].forEach(t => t.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white');
+          // Connect to the room host
+          const conn = state.peer.connect(roomToJoin, { metadata: { name: state.username } });
+          setupDataConnection(conn);
 
-      if (mode === 'broadcaster') {
-        bSec.classList.remove('hidden');
-        aSec.classList.add('hidden');
-        tabB.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow';
-      } else if (mode === 'audience') {
-        bSec.classList.add('hidden');
-        aSec.classList.remove('hidden');
-        tabA.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow';
-      } else if (mode === 'split') {
-        // Show BOTH sections side-by-side or stacked for instant loopback testing
-        bSec.classList.remove('hidden');
-        aSec.classList.remove('hidden');
-        tabS.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow';
+          const streamToSend = state.isScreenSharing && state.screenStream ? state.screenStream : state.localStream;
+          const mediaCall = state.peer.call(roomToJoin, streamToSend);
+          setupCallListeners(mediaCall);
+        }
+
+        // Switch to Call Stage UI
+        viewLobby.classList.add('hidden');
+        viewCall.classList.remove('hidden');
+        headerCallInfo.classList.remove('hidden');
+        headerCallInfo.classList.add('flex');
+        currentRoomLabel.textContent = state.roomId;
+
+        // Render Local Video Tile
+        renderLocalVideoTile();
+        updateParticipantCount();
+
+        showToast(`Joined as ${state.username}`, 'success');
+      } catch (e) {
+        console.error('Failed to start meeting:', e);
+        showToast('Unable to connect to meeting room. Try another code.', 'error');
+        lobbyStatus.textContent = '';
       }
     }
 
-    function updateHostViewerRoster() {
-      const container = document.getElementById('hostViewerList');
-      const badge = document.getElementById('hostViewerCountBadge');
-      const count = appState.connectedViewers.size;
+    function endCall() {
+      // Close all calls & data channels
+      Object.values(state.calls).forEach(({ call }) => {
+        if (call) call.close();
+      });
+      Object.values(state.activeConnections).forEach(conn => {
+        if (conn) conn.close();
+      });
 
-      badge.textContent = `${count} ${count === 1 ? 'Viewer' : 'Viewers'}`;
+      if (state.screenStream) {
+        state.screenStream.getTracks().forEach(t => t.stop());
+      }
+      if (state.peer) {
+        state.peer.destroy();
+        state.peer = null;
+      }
 
-      if (count === 0) {
-        container.innerHTML = `
-          <div class="py-3 text-center text-slate-500 text-xs">
-            No viewers tuned in yet. Click "Split View" above or open in another window to test live audience reception!
-          </div>`;
+      state.calls = {};
+      state.activeConnections = {};
+      state.isScreenSharing = false;
+      videoGridContainer.innerHTML = '';
+
+      // Return to lobby view
+      viewCall.classList.add('hidden');
+      headerCallInfo.classList.add('hidden');
+      viewLobby.classList.remove('hidden');
+      chatPanel.classList.add('translate-x-full');
+      state.isChatOpen = false;
+
+      connDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+      connText.textContent = 'Ready';
+      currentRoomLabel.textContent = '---';
+
+      // Restore camera on preview
+      previewVideo.srcObject = state.localStream;
+      showToast('Call ended', 'info');
+    }
+
+    function renderLocalVideoTile() {
+      const existing = document.getElementById('tile-local');
+      if (existing) existing.remove();
+
+      const tile = document.createElement('div');
+      tile.id = 'tile-local';
+      tile.className = 'relative bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl aspect-video w-full h-full max-h-[75vh] flex items-center justify-center group';
+
+      tile.innerHTML = `
+        <video id="video-local" autoplay playsinline muted class="w-full h-full object-cover ${state.isScreenSharing ? '' : 'video-mirror'}"></video>
+        
+        <!-- Speaking Audio Ring -->
+        <div id="local-speaking-ring" class="absolute inset-0 border-2 border-emerald-400 rounded-2xl pointer-events-none opacity-0 transition-opacity duration-150 shadow-[inset_0_0_15px_rgba(52,211,153,0.3)]"></div>
+
+        <!-- Video Off Avatar -->
+        <div id="avatar-local" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10 ${state.isVideoMuted ? '' : 'hidden'}">
+          <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-xl font-bold">
+            ${getInitials(state.username)}
+          </div>
+          <span class="text-xs text-slate-400 mt-2">${state.username}</span>
+        </div>
+
+        <!-- Bottom Label Bar -->
+        <div class="absolute bottom-3 left-3 flex items-center space-x-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-medium text-white border border-slate-800 z-20">
+          <span>${state.username} (You)</span>
+        </div>
+      `;
+
+      videoGridContainer.appendChild(tile);
+      const videoElem = tile.querySelector('#video-local');
+      videoElem.srcObject = state.isScreenSharing && state.screenStream ? state.screenStream : state.localStream;
+
+      recalculateGridLayout();
+    }
+
+    function addRemoteParticipantTile(remotePeerId, stream) {
+      if (document.getElementById(`tile-${remotePeerId}`)) {
+        const vid = document.getElementById(`video-${remotePeerId}`);
+        if (vid) vid.srcObject = stream;
         return;
       }
 
-      container.innerHTML = '';
-      appState.connectedViewers.forEach((record, peerId) => {
-        const item = document.createElement('div');
-        item.className = 'py-2 flex items-center justify-between font-mono text-xs';
-        item.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="text-slate-300">${peerId.substring(0, 16)}</span>
-            <span class="text-[10px] text-cyan-400 bg-studio-950 px-1.5 py-0.5 rounded border border-studio-800">&lt; 5ms</span>
+      const displayName = (state.calls[remotePeerId] && state.calls[remotePeerId].name) || `Participant (${remotePeerId.substring(0, 4)})`;
+
+      const tile = document.createElement('div');
+      tile.id = `tile-${remotePeerId}`;
+      tile.className = 'relative bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl aspect-video w-full h-full max-h-[75vh] flex items-center justify-center group';
+
+      tile.innerHTML = `
+        <video id="video-${remotePeerId}" autoplay playsinline class="w-full h-full object-cover"></video>
+
+        <!-- Video Off Avatar -->
+        <div id="avatar-${remotePeerId}" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10 hidden">
+          <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-600 to-pink-600 flex items-center justify-center text-white text-xl font-bold">
+            ${getInitials(displayName)}
           </div>
-          <span class="text-[10px] text-emerald-400 font-bold uppercase">1080p FHD</span>
-        `;
-        container.appendChild(item);
+          <span class="text-xs text-slate-400 mt-2">${displayName}</span>
+        </div>
+
+        <!-- Bottom Label Bar -->
+        <div class="absolute bottom-3 left-3 flex items-center space-x-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-medium text-white border border-slate-800 z-20">
+          <span id="label-${remotePeerId}">${displayName}</span>
+        </div>
+
+        <!-- Tile Actions Hover Bar -->
+        <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1.5 z-20">
+          <button onclick="toggleTileFullscreen('tile-${remotePeerId}')" class="p-1.5 rounded-lg bg-slate-950/70 text-slate-300 hover:text-white border border-slate-700" title="Pin / Fullscreen">
+            <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      `;
+
+      videoGridContainer.appendChild(tile);
+      const vid = tile.querySelector(`#video-${remotePeerId}`);
+      vid.srcObject = stream;
+
+      if (!state.calls[remotePeerId]) {
+        state.calls[remotePeerId] = { stream: stream };
+      } else {
+        state.calls[remotePeerId].stream = stream;
+      }
+
+      lucide.createIcons();
+      recalculateGridLayout();
+      updateParticipantCount();
+    }
+
+    function removeParticipant(remotePeerId) {
+      const tile = document.getElementById(`tile-${remotePeerId}`);
+      if (tile) tile.remove();
+      delete state.calls[remotePeerId];
+      delete state.activeConnections[remotePeerId];
+      recalculateGridLayout();
+      updateParticipantCount();
+    }
+
+    function updateParticipantLabel(peerId, name) {
+      const label = document.getElementById(`label-${peerId}`);
+      if (label) label.textContent = name;
+      const avatar = document.getElementById(`avatar-${peerId}`);
+      if (avatar) {
+        avatar.querySelector('div').textContent = getInitials(name);
+        avatar.querySelector('span').textContent = name;
+      }
+    }
+
+    function recalculateGridLayout() {
+      const tiles = videoGridContainer.children;
+      const count = tiles.length;
+
+      if (count <= 1) {
+        videoGridContainer.style.gridTemplateColumns = '1fr';
+      } else if (count === 2) {
+        videoGridContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(320px, 1fr))';
+      } else if (count <= 4) {
+        videoGridContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      } else if (count <= 6) {
+        videoGridContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      } else {
+        videoGridContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+      }
+    }
+
+    function updateParticipantCount() {
+      const count = Object.keys(state.calls).length + 1;
+      participantCounter.textContent = `${count} in call`;
+    }
+
+    function getInitials(name) {
+      if (!name) return 'GP';
+      const parts = name.trim().split(' ');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    }
+
+    function toggleTileFullscreen(tileId) {
+      const tile = document.getElementById(tileId);
+      if (!tile) return;
+      if (!document.fullscreenElement) {
+        tile.requestFullscreen().catch(err => console.error(err));
+      } else {
+        document.exitFullscreen().catch(err => console.error(err));
+      }
+    }
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      appendChatMessage('You', text, now, true);
+
+      broadcastData({
+        type: 'chat',
+        name: state.username,
+        text: text,
+        time: now
       });
+
+      chatInput.value = '';
+    });
+
+    function appendChatMessage(sender, text, time, isMe) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `flex flex-col space-y-1 ${isMe ? 'items-end' : 'items-start'}`;
+
+      msgDiv.innerHTML = `
+        <div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
+          <span class="font-semibold ${isMe ? 'text-brand-400' : 'text-slate-300'}">${escapeHtml(sender)}</span>
+          <span>•</span>
+          <span>${time}</span>
+        </div>
+        <div class="max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed ${isMe ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700/60'}">
+          ${escapeHtml(text)}
+        </div>
+      `;
+
+      chatMessagesContainer.appendChild(msgDiv);
+      chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+
+      if (!state.isChatOpen && !isMe) {
+        state.unreadChatCount++;
+        chatBadge.textContent = state.unreadChatCount;
+        chatBadge.classList.remove('hidden');
+      }
     }
 
-    function toggleCameraMute() {
-      appState.isCameraMuted = !appState.isCameraMuted;
-      const icon = document.getElementById('muteCamIcon');
-      if (appState.isCameraMuted) {
-        icon.setAttribute('data-lucide', 'video-off');
-        icon.className = 'w-4 h-4 text-rose-400';
+    function escapeHtml(str) {
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    function toggleChatPanel() {
+      state.isChatOpen = !state.isChatOpen;
+      if (state.isChatOpen) {
+        chatPanel.classList.remove('translate-x-full');
+        state.unreadChatCount = 0;
+        chatBadge.classList.add('hidden');
+        chatInput.focus();
       } else {
-        icon.setAttribute('data-lucide', 'video');
-        icon.className = 'w-4 h-4 text-emerald-400';
+        chatPanel.classList.add('translate-x-full');
       }
+    }
+
+    async function togglePip() {
+      try {
+        const localVideo = document.getElementById('video-local');
+        if (!localVideo) return;
+
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else if (document.pictureInPictureEnabled) {
+          await localVideo.requestPictureInPicture();
+        }
+      } catch (err) {
+        showToast('Picture-in-Picture not supported or blocked.', 'info');
+      }
+    }
+
+    function toggleAppFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
-    }
 
-    function toggleAudioMute() {
-      appState.isAudioMuted = !appState.isAudioMuted;
-      if (appState.broadcastAudioTrack) {
-        appState.broadcastAudioTrack.enabled = !appState.isAudioMuted;
+      // Check URL query parameters for auto room join e.g., ?room=nx-xyz
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+      if (roomParam) {
+        inputRoomCode.value = roomParam;
       }
-      const icon = document.getElementById('muteMicIcon');
-      if (appState.isAudioMuted) {
-        icon.setAttribute('data-lucide', 'mic-off');
-        icon.className = 'w-4 h-4 text-rose-400';
-      } else {
-        icon.setAttribute('data-lucide', 'mic');
-        icon.className = 'w-4 h-4 text-emerald-400';
-      }
-      lucide.createIcons();
-    }
 
-    function toggleFlipHorizontal() {
-      appState.isMirrored = !appState.isMirrored;
-    }
+      // Initialize local media preview
+      await initLocalMedia();
 
-    function updateLowerThirdContent() {
-      appState.lowerThirdTitle = document.getElementById('lowerThirdTitleInput').value || 'WaveCast FHD Studio';
-      appState.lowerThirdSub = document.getElementById('lowerThirdSubInput').value || '1080p 16:9 Full HD Stream';
-      document.getElementById('lowerThirdDisplayTitle').textContent = appState.lowerThirdTitle;
-      document.getElementById('lowerThirdDisplaySub').textContent = appState.lowerThirdSub;
-    }
+      // Preview Buttons
+      previewBtnMic.addEventListener('click', toggleAudio);
+      previewBtnCam.addEventListener('click', toggleVideo);
 
-    function toggleHelpModal(show) {
-      const modal = document.getElementById('helpModal');
-      if (show) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      } else {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-    }
+      // In-Call Action Buttons
+      ctrlMic.addEventListener('click', toggleAudio);
+      ctrlCam.addEventListener('click', toggleVideo);
+      ctrlScreen.addEventListener('click', toggleScreenShare);
+      ctrlPip.addEventListener('click', togglePip);
+      ctrlEndCall.addEventListener('click', endCall);
+      ctrlChatToggle.addEventListener('click', toggleChatPanel);
+      btnCloseChat.addEventListener('click', toggleChatPanel);
+      ctrlFullscreen.addEventListener('click', toggleAppFullscreen);
+
+      btnShareInvite.addEventListener('click', copyRoomInvitation);
+      btnCopyHeader.addEventListener('click', copyRoomInvitation);
+
+      btnCreateRoom.addEventListener('click', () => startMeeting(true));
+      btnJoinRoom.addEventListener('click', () => startMeeting(false));
+
+      // Settings Modal
+      btnOpenSettings.addEventListener('click', () => modalSettings.classList.remove('hidden', 'flex'), modalSettings.classList.add('flex'));
+      btnCloseSettings.addEventListener('click', () => modalSettings.classList.add('hidden'), modalSettings.classList.remove('flex'));
+      btnSaveSettings.addEventListener('click', async () => {
+        modalSettings.classList.add('hidden');
+        modalSettings.classList.remove('flex');
+        await initLocalMedia(selectAudioInput.value, selectVideoInput.value);
+
+        // Apply audio output switch if supported
+        if (selectAudioOutput.value && typeof previewVideo.setSinkId === 'function') {
+          try {
+            await previewVideo.setSinkId(selectAudioOutput.value);
+          } catch (e) {
+            console.warn('Cannot setSinkId:', e);
+          }
+        }
+        showToast('Device settings updated', 'success');
+      });
+
+      // Keyboard Shortcuts (M for Mic, V for Cam, S for Screen)
+      window.addEventListener('keydown', (e) => {
+        if (['input', 'textarea'].includes(document.activeElement.tagName.toLowerCase())) return;
+
+        if (e.key.toLowerCase() === 'm') {
+          toggleAudio();
+        } else if (e.key.toLowerCase() === 'v') {
+          toggleVideo();
+        } else if (e.key.toLowerCase() === 's') {
+          toggleScreenShare();
+        }
+      });
+    });
   </script>
 </body>
 </html>
