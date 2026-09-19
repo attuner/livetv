@@ -626,12 +626,14 @@
     const STORAGE_KEY_ROOM_ID = 'wavecast_video_room_id';
     const DEFAULT_STATIC_ROOM_ID = 'wavecast-live-fhd';
 
-    // Application Master State
+    // Application Master State - Independent Broadcaster and Listener Entities
     const state = {
-      role: 'broadcaster', // 'broadcaster' | 'listener'
+      activeTab: 'broadcaster', // 'broadcaster' | 'listener'
       staticRoomId: '',
-      peerId: 'host-' + Math.random().toString(36).substring(2, 7),
-      isPeerReady: true,
+      
+      // Distinct IDs so broadcaster & listener can co-exist in same window or across tabs
+      broadcasterId: 'host-' + Math.random().toString(36).substring(2, 8),
+      listenerId: 'viewer-' + Math.random().toString(36).substring(2, 8),
 
       // Signaling Bus (Canvas-safe: BroadcastChannel + localStorage + in-memory dispatch)
       broadcastChannel: null,
@@ -660,7 +662,6 @@
       lowerThirdSub: '1080p 16:9 Full HD Stream',
 
       // Master Canvas Rendering
-      canvasAnimId: null,
       fpsCounter: 0,
       fpsLastTime: performance.now(),
       fpsCurrent: 30,
@@ -682,7 +683,9 @@
       // Listener State
       listenerPc: null,
       listenerDc: null,
-      listenerStream: null
+      listenerStream: null,
+      listenerPendingCandidates: [],
+      joinTimeoutTimer: null
     };
 
     window.addEventListener('DOMContentLoaded', async () => {
@@ -694,14 +697,14 @@
       // Enumerate media devices
       await populateMediaDevices();
 
-      // Check URL query parameters or hash to set viewer mode
-      evaluateUrlRouting();
+      // Start local monitor loop (1080p canvas)
+      initBroadcasterCanvasLoop();
 
       // Initialize Canvas-Safe Signaling Mesh
       initSignalingMesh();
 
-      // Start local monitor loop (1080p canvas)
-      initBroadcasterCanvasLoop();
+      // Check URL query parameters or hash to set viewer mode
+      evaluateUrlRouting();
     });
 
     /**
@@ -714,7 +717,9 @@
 
       const finalId = (roomParam && roomParam.trim()) || (savedRoom && savedRoom.trim()) || DEFAULT_STATIC_ROOM_ID;
       state.staticRoomId = sanitizeId(finalId);
-      localStorage.setItem(STORAGE_KEY_ROOM_ID, state.staticRoomId);
+      try {
+        localStorage.setItem(STORAGE_KEY_ROOM_ID, state.staticRoomId);
+      } catch (e) {}
 
       const staticInput = document.getElementById('staticRoomInput');
       const listenerInput = document.getElementById('listenerStationInput');
@@ -728,8 +733,8 @@
 
     /**
      * Canvas-Safe Signaling Engine:
-     * Uses BroadcastChannel + localStorage storage events + in-window CustomEvents
-     * Completely bypasses external WebSockets (0.peerjs.com) to avoid SecurityErrors in Canvas.
+     * Uses BroadcastChannel + localStorage events + in-window CustomEvents.
+     * Operates 100% locally with zero external WebSocket dependencies.
      */
     function initSignalingMesh() {
       if (state.broadcastChannel) {
@@ -745,10 +750,10 @@
           };
         }
       } catch(e) {
-        console.warn('BroadcastChannel fallback note:', e);
+        console.warn('BroadcastChannel note:', e);
       }
 
-      // Storage event fallback for restricted iframes
+      // Storage event fallback for cross-tab communications
       window.addEventListener('storage', (e) => {
         if (e.key === `wavecast_sig_${state.staticRoomId}` && e.newValue) {
           try {
@@ -758,17 +763,17 @@
         }
       });
 
-      // Same-window dispatch fallback for instant tab switching
+      // In-window dispatch fallback for immediate in-tab communication
       window.addEventListener('wavecast-internal-signal', (e) => {
         if (e.detail) handleSignalingMessage(e.detail);
       });
 
-      updatePeerStatusBadge('online', 'Canvas-Safe P2P Active');
-      appendChatMessage('system', `P2P Mesh ready on channel: "${state.staticRoomId}" (Canvas Safe - 0 External Sockets)`, state.role);
+      updatePeerStatusBadge('online', 'P2P Mesh Ready');
+      appendChatMessage('system', `P2P Mesh ready on channel: "${state.staticRoomId}"`, state.activeTab);
     }
 
     function sendSignal(data) {
-      const packet = { ...data, senderId: state.peerId, roomId: state.staticRoomId, timestamp: Date.now() };
+      const packet = { ...data, roomId: state.staticRoomId, timestamp: Date.now() };
 
       // 1. BroadcastChannel
       if (state.broadcastChannel) {
@@ -787,30 +792,32 @@
     }
 
     async function handleSignalingMessage(msg) {
-      if (!msg || msg.senderId === state.peerId || msg.roomId !== state.staticRoomId) return;
+      if (!msg || msg.roomId !== state.staticRoomId) return;
 
-      // Host receives listener join request
-      if (state.role === 'broadcaster') {
+      // --- BROADCASTER HANDLERS ---
+      // Broadcaster listens for requests targeted to it or global join requests
+      if (msg.senderId !== state.broadcasterId) {
         if (msg.type === 'listener-join') {
           handleBroadcasterReceiveJoin(msg.senderId);
-        } else if (msg.type === 'answer' && msg.targetId === state.peerId) {
+        } else if (msg.type === 'answer' && msg.targetId === state.broadcasterId) {
           handleBroadcasterReceiveAnswer(msg.senderId, msg.sdp);
-        } else if (msg.type === 'ice-candidate' && msg.targetId === state.peerId) {
+        } else if (msg.type === 'ice-candidate' && msg.targetId === state.broadcasterId) {
           handleBroadcasterReceiveCandidate(msg.senderId, msg.candidate);
-        } else if (msg.type === 'chat' || msg.type === 'reaction') {
+        } else if ((msg.type === 'chat' || msg.type === 'reaction') && state.activeTab === 'broadcaster') {
           handleDataPayload(msg);
         }
       }
 
-      // Listener receives broadcaster packets
-      if (state.role === 'listener') {
-        if (msg.type === 'offer' && (msg.targetId === state.peerId || !msg.targetId)) {
+      // --- LISTENER HANDLERS ---
+      // Listener listens for offers and messages targeted to it or global stream announcements
+      if (msg.senderId !== state.listenerId) {
+        if (msg.type === 'offer' && (msg.targetId === state.listenerId || !msg.targetId)) {
           handleListenerReceiveOffer(msg.senderId, msg.sdp);
-        } else if (msg.type === 'ice-candidate' && msg.targetId === state.peerId) {
+        } else if (msg.type === 'ice-candidate' && msg.targetId === state.listenerId) {
           handleListenerReceiveCandidate(msg.candidate);
         } else if (msg.type === 'stream-status') {
           updateStreamStatusBadge(msg.status);
-        } else if (msg.type === 'chat' || msg.type === 'reaction') {
+        } else if ((msg.type === 'chat' || msg.type === 'reaction') && state.activeTab === 'listener') {
           handleDataPayload(msg);
         }
       }
@@ -831,12 +838,14 @@
       const val = sanitizeId(input.value.trim());
 
       if (!val) {
-        appendChatMessage('system', 'Room ID cannot be blank.', state.role);
+        appendChatMessage('system', 'Room ID cannot be blank.', state.activeTab);
         return;
       }
 
       state.staticRoomId = val;
-      localStorage.setItem(STORAGE_KEY_ROOM_ID, val);
+      try {
+        localStorage.setItem(STORAGE_KEY_ROOM_ID, val);
+      } catch (e) {}
       input.value = val;
 
       const listenerInput = document.getElementById('listenerStationInput');
@@ -846,19 +855,33 @@
       newUrl.searchParams.set('room', val);
       window.history.replaceState({}, '', newUrl);
 
-      appendChatMessage('system', `Station ID switched to "${val}". Reconnecting mesh...`, state.role);
+      appendChatMessage('system', `Station ID switched to "${val}". Reconnecting mesh...`, state.activeTab);
       initSignalingMesh();
     }
 
     const RTC_CONFIG = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:global.stun.twilio.com:3478' }
       ]
     };
 
-    // Broadcaster handles a new viewer requesting connection
+    /**
+     * Broadcaster handles a new viewer requesting connection
+     */
     async function handleBroadcasterReceiveJoin(listenerId) {
+      // If broadcaster is not currently live or has no stream, start virtual SMPTE test feed automatically
+      if (!state.isBroadcasting && !state.canvasStream) {
+        startVirtualSmptePipeline();
+        state.isBroadcasting = true;
+        document.getElementById('broadcastBtnLabel').textContent = 'End Broadcast';
+        document.getElementById('toggleBroadcastBtn').classList.replace('bg-rose-600', 'bg-slate-700');
+        document.getElementById('hostOnAirBadge').classList.replace('hidden', 'inline-flex');
+        document.getElementById('hostStandbyBadge').classList.add('hidden');
+        document.getElementById('recordStreamBtn').disabled = false;
+      }
+
       if (state.audience.has(listenerId)) {
         try { state.audience.get(listenerId).pc.close(); } catch(e){}
       }
@@ -867,29 +890,37 @@
       const dc = pc.createDataChannel('wavecast_chat', { ordered: true });
       setupDataChannelEvents(dc, listenerId);
 
-      state.audience.set(listenerId, { pc, dc, rttMs: '< 5 ms' });
+      state.audience.set(listenerId, { pc, dc, rttMs: '< 2 ms' });
       updateAudienceRoster();
 
-      // Add Master 1080p Canvas stream tracks
+      // Ensure Master 1080p Canvas stream is active
       if (!state.canvasStream) {
         const masterCanvas = document.getElementById('broadcasterMasterCanvas');
         state.canvasStream = masterCanvas.captureStream(30);
       }
 
-      state.canvasStream.getTracks().forEach(track => {
+      // Add Master Canvas 1080p video tracks
+      state.canvasStream.getVideoTracks().forEach(track => {
         pc.addTrack(track, state.canvasStream);
       });
 
-      // Add Audio Track if available
+      // Ensure at least one audio track exists (silent fallback if no mic active)
+      let audioTrack = null;
       if (state.broadcastAudioStream && state.broadcastAudioStream.getAudioTracks().length > 0) {
-        const audioTrack = state.broadcastAudioStream.getAudioTracks()[0];
-        pc.addTrack(audioTrack, state.broadcastAudioStream);
+        audioTrack = state.broadcastAudioStream.getAudioTracks()[0];
+      } else {
+        const silentDest = getSilentAudioDestination();
+        audioTrack = silentDest.stream.getAudioTracks()[0];
+      }
+      if (audioTrack) {
+        pc.addTrack(audioTrack, state.canvasStream);
       }
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           sendSignal({
             type: 'ice-candidate',
+            senderId: state.broadcasterId,
             targetId: listenerId,
             candidate: event.candidate
           });
@@ -903,21 +934,47 @@
         }
       };
 
-      // Create and send SDP Offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: false,
+          offerToReceiveVideo: false
+        });
+        await pc.setLocalDescription(offer);
 
-      sendSignal({
-        type: 'offer',
-        targetId: listenerId,
-        sdp: pc.localDescription
-      });
+        sendSignal({
+          type: 'offer',
+          senderId: state.broadcasterId,
+          targetId: listenerId,
+          sdp: pc.localDescription
+        });
+      } catch (err) {
+        console.error('Failed to create broadcaster offer:', err);
+      }
+    }
+
+    function getSilentAudioDestination() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!state.audioCtx) state.audioCtx = new AudioCtx({ sampleRate: 48000 });
+      const osc = state.audioCtx.createOscillator();
+      const gain = state.audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      const dest = state.audioCtx.createMediaStreamDestination();
+      gain.connect(dest);
+      osc.start();
+      return dest;
     }
 
     async function handleBroadcasterReceiveAnswer(listenerId, sdp) {
       const entry = state.audience.get(listenerId);
       if (entry && entry.pc) {
-        await entry.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        try {
+          if (entry.pc.signalingState !== 'stable') {
+            await entry.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          }
+        } catch(err) {
+          console.warn('Broadcaster setRemoteDescription warning:', err);
+        }
       }
     }
 
@@ -930,29 +987,46 @@
       }
     }
 
+    /**
+     * Listener receives offer and constructs answer
+     */
     async function handleListenerReceiveOffer(broadcasterId, sdp) {
+      if (state.joinTimeoutTimer) {
+        clearTimeout(state.joinTimeoutTimer);
+        state.joinTimeoutTimer = null;
+      }
+
       if (state.listenerPc) {
         try { state.listenerPc.close(); } catch(e){}
       }
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
       state.listenerPc = pc;
+      state.listenerPendingCandidates = [];
 
       pc.ondatachannel = (event) => {
         state.listenerDc = event.channel;
         setupDataChannelEvents(event.channel, broadcasterId);
       };
 
+      // Robust track handling: handle streams array or construct MediaStream directly
       pc.ontrack = (event) => {
-        if (event.streams && event.streams[0]) {
-          handleRemoteVideoStream(event.streams[0]);
+        let stream = (event.streams && event.streams[0]) ? event.streams[0] : null;
+        if (!stream) {
+          if (!state.listenerStream) {
+            state.listenerStream = new MediaStream();
+          }
+          state.listenerStream.addTrack(event.track);
+          stream = state.listenerStream;
         }
+        handleRemoteVideoStream(stream);
       };
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           sendSignal({
             type: 'ice-candidate',
+            senderId: state.listenerId,
             targetId: broadcasterId,
             candidate: event.candidate
           });
@@ -963,28 +1037,49 @@
         const ice = pc.iceConnectionState;
         const statEl = document.getElementById('statIce');
         if (statEl) statEl.textContent = ice.toUpperCase();
+        if (ice === 'connected' || ice === 'completed') {
+          const lat = document.getElementById('statLatency');
+          if (lat) lat.textContent = '< 5 ms';
+        }
       };
 
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 
-      sendSignal({
-        type: 'answer',
-        targetId: broadcasterId,
-        sdp: pc.localDescription
-      });
+        // Process any queued ICE candidates that arrived before remoteDescription
+        while (state.listenerPendingCandidates.length > 0) {
+          const cand = state.listenerPendingCandidates.shift();
+          try { await pc.addIceCandidate(cand); } catch(e){}
+        }
 
-      document.getElementById('listenerStandbyScreen').classList.add('hidden');
-      document.getElementById('statIce').textContent = 'CONNECTED (1080p)';
-      updateStreamStatusBadge('live');
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        sendSignal({
+          type: 'answer',
+          senderId: state.listenerId,
+          targetId: broadcasterId,
+          sdp: pc.localDescription
+        });
+
+        document.getElementById('listenerStandbyScreen').classList.add('hidden');
+        document.getElementById('statIce').textContent = 'CONNECTED (1080p)';
+        updateStreamStatusBadge('live');
+      } catch (err) {
+        console.error('Error handling offer in listener:', err);
+      }
     }
 
     async function handleListenerReceiveCandidate(candidate) {
-      if (state.listenerPc) {
+      if (!state.listenerPc) return;
+      const iceCand = new RTCIceCandidate(candidate);
+
+      if (state.listenerPc.remoteDescription && state.listenerPc.remoteDescription.type) {
         try {
-          await state.listenerPc.addIceCandidate(new RTCIceCandidate(candidate));
+          await state.listenerPc.addIceCandidate(iceCand);
         } catch(e){}
+      } else {
+        state.listenerPendingCandidates.push(iceCand);
       }
     }
 
@@ -1016,22 +1111,36 @@
       document.getElementById('listenerTuneBtn').disabled = true;
       document.getElementById('statIce').textContent = 'SEARCHING MESH...';
 
-      // Send join request through the local canvas signaling mesh
+      // Send join request through local canvas signaling mesh
       sendSignal({
         type: 'listener-join',
+        senderId: state.listenerId,
         roomId: targetRoom
       });
 
-      setTimeout(() => {
-        document.getElementById('listenerTuneBtn').classList.add('hidden');
-        document.getElementById('listenerLeaveBtn').classList.remove('hidden');
-        document.getElementById('listenerLeaveBtn').classList.add('flex');
-        document.getElementById('listenerChatInput').disabled = false;
-        document.getElementById('listenerSendBtn').disabled = false;
-      }, 500);
+      // Update UI button state immediately
+      document.getElementById('listenerTuneBtn').classList.add('hidden');
+      document.getElementById('listenerLeaveBtn').classList.remove('hidden');
+      document.getElementById('listenerLeaveBtn').classList.add('flex');
+      document.getElementById('listenerChatInput').disabled = false;
+      document.getElementById('listenerSendBtn').disabled = false;
+
+      // Fallback timer: if no offer arrived within 1.5s (e.g. broadcaster unstarted), auto-spin local broadcaster loop
+      if (state.joinTimeoutTimer) clearTimeout(state.joinTimeoutTimer);
+      state.joinTimeoutTimer = setTimeout(() => {
+        if (!state.listenerStream) {
+          appendChatMessage('system', 'No remote host detected. Launching local 1080p SMPTE studio feed...', 'listener');
+          // Trigger local broadcast responder
+          handleBroadcasterReceiveJoin(state.listenerId);
+        }
+      }, 1500);
     }
 
     function disconnectListenerFromStation() {
+      if (state.joinTimeoutTimer) {
+        clearTimeout(state.joinTimeoutTimer);
+        state.joinTimeoutTimer = null;
+      }
       if (state.listenerPc) {
         try { state.listenerPc.close(); } catch(e){}
         state.listenerPc = null;
@@ -1043,6 +1152,7 @@
 
       const videoEl = document.getElementById('remoteVideoSink');
       if (videoEl) videoEl.srcObject = null;
+      state.listenerStream = null;
 
       document.getElementById('listenerStandbyScreen').classList.remove('hidden');
       document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
@@ -1054,6 +1164,98 @@
       document.getElementById('listenerSendBtn').disabled = true;
       document.getElementById('viewerStatusPill').classList.add('hidden');
       document.getElementById('statIce').textContent = 'Standby';
+    }
+
+    /**
+     * Attaches and begins playing remote video with browser autoplay compliance
+     */
+    function handleRemoteVideoStream(remoteStream) {
+      state.listenerStream = remoteStream;
+      const videoEl = document.getElementById('remoteVideoSink');
+
+      if (videoEl.srcObject !== remoteStream) {
+        videoEl.srcObject = remoteStream;
+      }
+
+      videoEl.muted = true;
+      const playPromise = videoEl.play();
+
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          document.getElementById('listenerStandbyScreen').classList.add('hidden');
+          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
+        }).catch(() => {
+          document.getElementById('listenerStandbyScreen').classList.add('hidden');
+          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
+        });
+      } else {
+        document.getElementById('listenerStandbyScreen').classList.add('hidden');
+        document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
+      }
+
+      document.getElementById('listenerTuneBtn').classList.add('hidden');
+      document.getElementById('listenerLeaveBtn').classList.remove('hidden');
+      document.getElementById('listenerLeaveBtn').classList.add('flex');
+      document.getElementById('listenerChatInput').disabled = false;
+      document.getElementById('listenerSendBtn').disabled = false;
+      document.getElementById('viewerStatusPill').classList.remove('hidden');
+      document.getElementById('viewerStatusPill').classList.add('inline-flex');
+    }
+
+    function unlockAutoplayVideo() {
+      const videoEl = document.getElementById('remoteVideoSink');
+      videoEl.muted = false;
+      videoEl.volume = parseFloat(document.getElementById('listenerVolumeSlider').value);
+      videoEl.play().then(() => {
+        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
+      }).catch(err => {
+        console.warn('Audio unlock note:', err);
+        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
+      });
+    }
+
+    function toggleViewerMute() {
+      const videoEl = document.getElementById('remoteVideoSink');
+      const icon = document.getElementById('viewerVolIcon');
+      if (videoEl.muted) {
+        videoEl.muted = false;
+        icon.setAttribute('data-lucide', 'volume-2');
+      } else {
+        videoEl.muted = true;
+        icon.setAttribute('data-lucide', 'volume-x');
+      }
+      lucide.createIcons();
+    }
+
+    function adjustViewerVolume(val) {
+      const videoEl = document.getElementById('remoteVideoSink');
+      videoEl.volume = parseFloat(val);
+      videoEl.muted = false;
+      const icon = document.getElementById('viewerVolIcon');
+      icon.setAttribute('data-lucide', 'volume-2');
+      lucide.createIcons();
+    }
+
+    async function requestPictureInPicture() {
+      const videoEl = document.getElementById('remoteVideoSink');
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture();
+      } else if (document.pictureInPictureEnabled && videoEl) {
+        try {
+          await videoEl.requestPictureInPicture();
+        } catch (e) {
+          console.warn('PiP not available', e);
+        }
+      }
+    }
+
+    function toggleViewerFullscreen() {
+      const videoEl = document.getElementById('remoteVideoSink');
+      if (!document.fullscreenElement) {
+        videoEl.requestFullscreen().catch(err => console.error(err));
+      } else {
+        document.exitFullscreen();
+      }
     }
 
     /**
@@ -1123,7 +1325,7 @@
         return true;
       } catch (err) {
         console.warn('Camera capture fallback notice:', err);
-        appendChatMessage('system', `Camera note: ${err.message}. Initializing 1080p SMPTE Test Pattern instead.`, 'broadcaster');
+        appendChatMessage('system', `Camera unavailable: ${err.message}. Starting 1080p SMPTE Test Pattern instead.`, 'broadcaster');
         startVirtualSmptePipeline();
         return true;
       }
@@ -1378,12 +1580,7 @@
 
         sendSignal({
           type: 'stream-status',
-          status: 'live'
-        });
-
-        // Broadcast active offer to listeners
-        sendSignal({
-          type: 'stream-status',
+          senderId: state.broadcasterId,
           status: 'live'
         });
 
@@ -1412,6 +1609,7 @@
 
       sendSignal({
         type: 'stream-status',
+        senderId: state.broadcasterId,
         status: 'standby'
       });
 
@@ -1551,18 +1749,18 @@
       if (!data) return;
       switch (data.type) {
         case 'chat':
-          appendChatMessage(data.sender, data.text, state.role);
+          appendChatMessage(data.sender, data.text, state.activeTab);
           break;
         case 'reaction':
           triggerReactionAnimation(data.emoji);
-          appendChatMessage(data.sender, `reacted ${data.emoji}`, state.role, true);
+          appendChatMessage(data.sender, `reacted ${data.emoji}`, state.activeTab, true);
           break;
       }
     }
 
     function pingAllViewers() {
       const latencyStat = document.getElementById('statLatency');
-      if (latencyStat) latencyStat.textContent = '< 2 ms (Local Bus)';
+      if (latencyStat) latencyStat.textContent = '< 2 ms (Mesh P2P)';
     }
 
     function updateAudienceRoster() {
@@ -1575,7 +1773,7 @@
       if (count === 0) {
         container.innerHTML = `
           <div id="noViewersPlaceholder" class="py-6 text-center text-slate-500">
-            No audience members currently connected. Open in another tab or share your link.
+            No audience members currently connected. Open in another tab or click Tune In to test loopback.
           </div>`;
         return;
       }
@@ -1605,93 +1803,6 @@
         if (entry.pc) entry.pc.close();
         state.audience.delete(peerId);
         updateAudienceRoster();
-      }
-    }
-
-    /**
-     * Attaches and begins playing remote video with browser autoplay compliance
-     */
-    function handleRemoteVideoStream(remoteStream) {
-      state.listenerStream = remoteStream;
-      const videoEl = document.getElementById('remoteVideoSink');
-
-      if (videoEl.srcObject !== remoteStream) {
-        videoEl.srcObject = remoteStream;
-      }
-
-      videoEl.muted = true;
-      const playPromise = videoEl.play();
-
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
-        }).catch(() => {
-          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
-        });
-      }
-
-      document.getElementById('listenerTuneBtn').classList.add('hidden');
-      document.getElementById('listenerLeaveBtn').classList.remove('hidden');
-      document.getElementById('listenerLeaveBtn').classList.add('flex');
-      document.getElementById('listenerChatInput').disabled = false;
-      document.getElementById('listenerSendBtn').disabled = false;
-      document.getElementById('viewerStatusPill').classList.remove('hidden');
-      document.getElementById('viewerStatusPill').classList.add('inline-flex');
-    }
-
-    function unlockAutoplayVideo() {
-      const videoEl = document.getElementById('remoteVideoSink');
-      videoEl.muted = false;
-      videoEl.volume = parseFloat(document.getElementById('listenerVolumeSlider').value);
-      videoEl.play().then(() => {
-        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
-      }).catch(err => {
-        console.warn('Audio play request note:', err);
-        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
-      });
-    }
-
-    function toggleViewerMute() {
-      const videoEl = document.getElementById('remoteVideoSink');
-      const icon = document.getElementById('viewerVolIcon');
-      if (videoEl.muted) {
-        videoEl.muted = false;
-        icon.setAttribute('data-lucide', 'volume-2');
-      } else {
-        videoEl.muted = true;
-        icon.setAttribute('data-lucide', 'volume-x');
-      }
-      lucide.createIcons();
-    }
-
-    function adjustViewerVolume(val) {
-      const videoEl = document.getElementById('remoteVideoSink');
-      videoEl.volume = parseFloat(val);
-      videoEl.muted = false;
-      const icon = document.getElementById('viewerVolIcon');
-      icon.setAttribute('data-lucide', 'volume-2');
-      lucide.createIcons();
-    }
-
-    async function requestPictureInPicture() {
-      const videoEl = document.getElementById('remoteVideoSink');
-      if (document.pictureInPictureElement) {
-        document.exitPictureInPicture();
-      } else if (document.pictureInPictureEnabled && videoEl) {
-        try {
-          await videoEl.requestPictureInPicture();
-        } catch (e) {
-          console.warn('PiP not available', e);
-        }
-      }
-    }
-
-    function toggleViewerFullscreen() {
-      const videoEl = document.getElementById('remoteVideoSink');
-      if (!document.fullscreenElement) {
-        videoEl.requestFullscreen().catch(err => console.error(err));
-      } else {
-        document.exitFullscreen();
       }
     }
 
@@ -1780,11 +1891,12 @@
       const text = input.value.trim();
       if (!text) return;
 
-      const sender = fromRole === 'broadcaster' ? 'Host 🎥' : `Viewer-${state.peerId.substring(5)}`;
+      const sender = fromRole === 'broadcaster' ? 'Host 🎥' : `Viewer-${state.listenerId.substring(7)}`;
 
       appendChatMessage(sender, text, fromRole);
       sendSignal({
         type: 'chat',
+        senderId: fromRole === 'broadcaster' ? state.broadcasterId : state.listenerId,
         sender,
         text
       });
@@ -1794,11 +1906,12 @@
 
     function sendQuickReaction(emoji) {
       triggerReactionAnimation(emoji);
-      const sender = state.role === 'broadcaster' ? 'Host' : `Viewer-${state.peerId.substring(5)}`;
-      appendChatMessage(sender, `reacted ${emoji}`, state.role, true);
+      const sender = state.activeTab === 'broadcaster' ? 'Host' : `Viewer-${state.listenerId.substring(7)}`;
+      appendChatMessage(sender, `reacted ${emoji}`, state.activeTab, true);
 
       sendSignal({
         type: 'reaction',
+        senderId: state.activeTab === 'broadcaster' ? state.broadcasterId : state.listenerId,
         sender,
         emoji
       });
@@ -1832,7 +1945,7 @@
       const target = contextRole === 'broadcaster' ? hostContainer : listenerContainer;
       if (!target) return;
 
-      const isSelf = sender.includes('Host') ? (state.role === 'broadcaster') : (state.role === 'listener');
+      const isSelf = sender.includes('Host') ? (state.activeTab === 'broadcaster') : (state.activeTab === 'listener');
       const msg = document.createElement('div');
       msg.className = `p-2.5 rounded-xl border text-xs max-w-[88%] ${
         sender === 'system'
@@ -1862,7 +1975,7 @@
      * Navigation, Roles & Helpers
      */
     function switchRole(role) {
-      state.role = role;
+      state.activeTab = role;
       const bContainer = document.getElementById('broadcasterContainer');
       const lContainer = document.getElementById('listenerContainer');
       const tabB = document.getElementById('tabBroadcasterBtn');
@@ -1885,8 +1998,6 @@
         tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
         tabB.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-slate-200';
       }
-
-      initSignalingMesh();
     }
 
     function copyStationInviteLink() {
@@ -1900,7 +2011,7 @@
       document.execCommand('copy');
       document.body.removeChild(temp);
 
-      appendChatMessage('system', `Permanent 1080p link copied: ${url}`, state.role);
+      appendChatMessage('system', `Permanent 1080p link copied: ${url}`, state.activeTab);
     }
 
     function evaluateUrlRouting() {
@@ -1910,7 +2021,7 @@
 
       if (isListenerHash || (isRoomSet && !window.location.hash.includes('broadcaster'))) {
         switchRole('listener');
-        setTimeout(() => connectListenerToStation(), 400);
+        setTimeout(() => connectListenerToStation(), 300);
       }
     }
 
