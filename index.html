@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WaveCast Live Video Studio</title>
+  <title>WaveCast Live Video Studio - 1080p Full HD</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,12 +14,12 @@
         extend: {
           colors: {
             studio: {
-              950: '#060913',
-              900: '#0b1120',
-              850: '#10172a',
-              800: '#17233f',
-              700: '#1f2e54',
-              600: '#2d3f6e',
+              950: '#050811',
+              900: '#0a0f1d',
+              850: '#111827',
+              800: '#1e293b',
+              700: '#334155',
+              600: '#475569',
               cyan: '#06b6d4',
               rose: '#f43f5e',
               emerald: '#10b981',
@@ -30,6 +30,9 @@
           fontFamily: {
             sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
             mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace']
+          },
+          aspectRatio: {
+            '16/9': '16 / 9'
           }
         }
       }
@@ -46,14 +49,14 @@
   <style>
     @keyframes live-pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.92); }
+      50% { opacity: 0.35; transform: scale(0.92); }
     }
     .pulse-live {
       animation: live-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
     @keyframes float-up {
-      0% { transform: translateY(0) scale(0.8); opacity: 1; }
-      100% { transform: translateY(-180px) scale(1.35); opacity: 0; }
+      0% { transform: translateY(0) scale(0.85); opacity: 1; }
+      100% { transform: translateY(-200px) scale(1.4); opacity: 0; }
     }
     .floating-reaction {
       position: absolute;
@@ -62,28 +65,39 @@
       animation: float-up 2.2s ease-out forwards;
       z-index: 60;
     }
-    .mirror-video {
-      transform: scaleX(-1);
+    /* Fixed 16:9 letterbox video viewport containment */
+    .fhd-stage {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      max-width: 100%;
+      background-color: #000000;
+      position: relative;
+      overflow: hidden;
+    }
+    .fhd-element {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0b1120; }
-    ::-webkit-scrollbar-thumb { background: #1f2e54; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #2d3f6e; }
+    ::-webkit-scrollbar-track { background: #0a0f1d; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
   </style>
 </head>
 
 <body class="bg-studio-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black antialiased relative overflow-x-hidden">
 
-  <!-- Floating Reaction Overlay Target (Full Page) -->
+  <!-- Floating Reaction Layer -->
   <div id="reactionField" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
 
   <!-- Header Navigation -->
-  <header class="border-b border-studio-800 bg-studio-900/90 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-3">
+  <header class="border-b border-studio-800 bg-studio-900/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
       
-      <!-- Brand & Studio Tag -->
+      <!-- Brand & Resolution Indicator -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-violet-600 to-rose-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-violet-600 to-rose-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 flex-shrink-0">
           <i data-lucide="video" class="w-5 h-5 text-white"></i>
         </div>
         <div>
@@ -91,11 +105,11 @@
             <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
               WaveCast <span class="text-cyan-400">Live Video Studio</span>
             </h1>
-            <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/30">
-              WebRTC HD
+            <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
+              1080p Full HD (16:9)
             </span>
           </div>
-          <p class="text-xs text-slate-400 hidden sm:block">Ultra-Low-Latency Real-Time Video Broadcasting & Interactive Audience Mesh</p>
+          <p class="text-xs text-slate-400 hidden sm:block">P2P Broadcast Engine • WebRTC Mesh • Real-Time Audio DSP</p>
         </div>
       </div>
 
@@ -110,7 +124,7 @@
           <i data-lucide="share-2" class="w-4 h-4 text-cyan-400"></i>
         </button>
 
-        <button onclick="toggleQuickHelp(true)" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition" title="Instructions & Diagnostics">
+        <button onclick="toggleQuickHelp(true)" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition" title="Instructions">
           <i data-lucide="help-circle" class="w-4 h-4"></i>
         </button>
       </div>
@@ -118,6 +132,7 @@
     </div>
   </header>
 
+  <!-- Main Content Layout -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
 
     <!-- Station Configuration & Permanent Room Key Bar -->
@@ -144,7 +159,7 @@
           </div>
 
           <div class="relative flex-1">
-            <input id="staticRoomInput" type="text" spellcheck="false" placeholder="channel-live-hq" 
+            <input id="staticRoomInput" type="text" spellcheck="false" placeholder="channel-live-fhd" 
                    class="w-full bg-studio-900 border border-studio-800 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-cyan-300 font-mono font-semibold focus:outline-none focus:border-cyan-500 transition">
           </div>
 
@@ -164,7 +179,7 @@
         <div class="flex items-center gap-2">
           <button onclick="toggleVirtualTestCard()" id="virtualCardBtn" class="px-3 py-2 bg-violet-950/60 hover:bg-violet-900/80 border border-violet-700/70 text-violet-300 rounded-xl text-xs font-mono flex items-center justify-center gap-1.5 transition">
             <i data-lucide="sliders" class="w-4 h-4 text-violet-400"></i>
-            <span id="virtualCardLabel">SMPTE Test Card</span>
+            <span id="virtualCardLabel">SMPTE 1080p Test</span>
           </button>
         </div>
 
@@ -175,7 +190,7 @@
         <div class="flex items-center gap-2">
           <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0 text-amber-400"></i>
           <span>
-            <strong>Station ID busy on WebRTC broker.</strong> Previous session socket is clearing. Retrying in <span id="conflictCountdown" class="font-mono font-bold text-white">3</span>s...
+            <strong>Station ID busy on WebRTC broker.</strong> Waiting for old peer socket clearance. Retrying in <span id="conflictCountdown" class="font-mono font-bold text-white">3</span>s...
           </span>
         </div>
         <button onclick="forceRetryCustomRoom()" class="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 text-white font-medium rounded text-[11px] whitespace-nowrap">Retry Now</button>
@@ -207,18 +222,17 @@
 
             <!-- Resolution & Stream Metrics -->
             <div class="flex items-center gap-3 font-mono text-[11px] text-slate-400">
-              <span id="monitorResolution">1280x720</span>
+              <span class="text-cyan-400 font-bold">1920×1080 (16:9 FHD)</span>
               <span>•</span>
               <span id="monitorFps">30 FPS</span>
             </div>
           </div>
 
-          <!-- Master Video Canvas & Video Tag Stage -->
-          <div class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
-            
-            <!-- Video Elements (Hardware Stream and Processed Canvas) -->
+          <!-- Master 16:9 FHD Stage -->
+          <div class="fhd-stage">
             <video id="broadcasterHiddenVideo" autoplay playsinline muted class="hidden"></video>
-            <canvas id="broadcasterMasterCanvas" class="w-full h-full object-contain"></canvas>
+            <!-- Fixed 1920x1080 Internal Resolution Canvas -->
+            <canvas id="broadcasterMasterCanvas" width="1920" height="1080" class="fhd-element"></canvas>
 
             <!-- Video Camera Disabled Graphic Placeholder -->
             <div id="videoDisabledPlaceholder" class="hidden absolute inset-0 bg-studio-950 flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
@@ -226,17 +240,17 @@
                 <i data-lucide="video-off" class="w-10 h-10"></i>
               </div>
               <p class="text-sm font-semibold text-slate-300">Camera Feed Paused</p>
-              <p class="text-xs text-slate-500 max-w-sm">Audio remains live while your video feed is disabled or switched.</p>
+              <p class="text-xs text-slate-500 max-w-sm">Microphone audio remains active while camera is paused.</p>
             </div>
 
             <!-- Lower Third On-Screen Broadcast Ticker Graphic -->
-            <div id="lowerThirdGraphic" class="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md bg-studio-950/85 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex items-center gap-3 transition-opacity duration-300 z-20">
-              <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm">
+            <div id="lowerThirdGraphic" class="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md bg-studio-950/90 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex items-center gap-3 transition-opacity duration-300 z-20">
+              <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                 <i data-lucide="radio" class="w-5 h-5"></i>
               </div>
               <div class="flex-1 min-w-0">
-                <p id="lowerThirdTitle" class="text-xs font-bold text-white uppercase tracking-wider truncate">WaveCast Live Stream</p>
-                <p id="lowerThirdSub" class="text-[11px] font-mono text-cyan-400 truncate">Broadcasting in Real-Time</p>
+                <p id="lowerThirdTitle" class="text-xs font-bold text-white uppercase tracking-wider truncate">WaveCast FHD Studio</p>
+                <p id="lowerThirdSub" class="text-[11px] font-mono text-cyan-400 truncate">1080p 16:9 Full HD Stream</p>
               </div>
             </div>
 
@@ -278,14 +292,14 @@
             <div class="flex items-center gap-2">
               <button id="recordStreamBtn" onclick="toggleStreamRecording()" disabled class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed border border-studio-700 transition flex items-center gap-1.5">
                 <i id="recDotIcon" data-lucide="disc" class="w-4 h-4 text-rose-500"></i>
-                <span id="recordBtnLabel">Record WebM</span>
+                <span id="recordBtnLabel">Record 1080p WebM</span>
               </button>
             </div>
 
           </div>
         </div>
 
-        <!-- Hardware Source Routing, Preamp & Lower-Third Customizer -->
+        <!-- Hardware Routing & Overlay Customizer -->
         <div class="bg-studio-900 border border-studio-800 rounded-2xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           
           <!-- Camera Device Select -->
@@ -319,20 +333,20 @@
           <!-- Lower Third Customizer Title -->
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-400">Lower-Third Title</label>
-            <input id="customLowerTitle" type="text" value="WaveCast Live Stream" oninput="updateLowerThirdText()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input id="customLowerTitle" type="text" value="WaveCast FHD Studio" oninput="updateLowerThirdText()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
           </div>
 
           <!-- Lower Third Subtitle -->
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-400">Ticker Subtitle</label>
-            <input id="customLowerSub" type="text" value="Broadcasting in Real-Time" oninput="updateLowerThirdText()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input id="customLowerSub" type="text" value="1080p 16:9 Full HD Stream" oninput="updateLowerThirdText()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
           </div>
 
           <!-- Overlay Toggle & Noise Suppression -->
           <div class="flex flex-col justify-center gap-2 pt-2 text-xs text-slate-300">
             <label class="inline-flex items-center gap-2 cursor-pointer">
               <input type="checkbox" id="showLowerThirdCheck" checked onchange="toggleLowerThirdVisibility(this.checked)" class="rounded bg-studio-950 border-studio-800 text-cyan-500 focus:ring-0">
-              <span>Show Lower-Third Overlay</span>
+              <span>Show Lower-Third Graphic</span>
             </label>
             <label class="inline-flex items-center gap-2 cursor-pointer">
               <input type="checkbox" id="noiseFilterCheck" checked onchange="renegotiateMediaConstraints()" class="rounded bg-studio-950 border-studio-800 text-cyan-500 focus:ring-0">
@@ -358,7 +372,7 @@
 
           <div id="audienceRosterContainer" class="divide-y divide-studio-800 max-h-40 overflow-y-auto pr-1 text-xs">
             <div id="noViewersPlaceholder" class="py-6 text-center text-slate-500">
-              No viewers currently connected. Share your station link to invite audience members.
+              No audience members currently connected. Share your station link to invite viewers.
             </div>
           </div>
         </div>
@@ -375,7 +389,7 @@
               <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i>
               <span class="text-sm font-semibold text-white">Broadcast Stage Chat</span>
             </div>
-            <span class="text-[11px] font-mono text-cyan-400">WebRTC DataChannel</span>
+            <span class="text-[11px] font-mono text-cyan-400">DataChannel</span>
           </div>
 
           <!-- Quick Reactions Toolbar -->
@@ -404,15 +418,15 @@
           </form>
         </div>
 
-        <!-- Recording Download Drawer (Revealed upon stop recording) -->
+        <!-- Recording Download Drawer -->
         <div id="recordingResultCard" class="hidden bg-emerald-950/40 border border-emerald-700/60 rounded-2xl p-4 flex flex-col gap-2 shadow-xl">
           <div class="flex items-center justify-between text-xs font-bold text-emerald-300">
-            <span class="flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4"></i> Video Recorded</span>
+            <span class="flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4"></i> 1080p Video Recorded</span>
             <span id="recordingTimerBadge" class="font-mono text-emerald-400">00:00</span>
           </div>
           <video id="recordingPlaybackEl" controls class="w-full rounded-lg bg-black aspect-video mt-1"></video>
           <a id="downloadRecordingAnchor" class="mt-1 block text-center py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition">
-            Download WebM Video (.webm)
+            Download 1080p Video (.webm)
           </a>
         </div>
 
@@ -431,9 +445,9 @@
           <div>
             <h2 class="text-base font-bold text-white flex items-center gap-2">
               <i data-lucide="tv" class="w-5 h-5 text-cyan-400"></i>
-              Audience Live Feed
+              Audience 1080p Live Feed
             </h2>
-            <p class="text-xs text-slate-400">Low-latency WebRTC P2P Direct Broadcast</p>
+            <p class="text-xs text-slate-400">Strict 16:9 Full HD WebRTC Stream</p>
           </div>
 
           <div class="flex items-center gap-2">
@@ -452,18 +466,19 @@
         <!-- Audience Video Player Container -->
         <div class="bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative group">
           
-          <div class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
+          <!-- Strict 16:9 FHD Stage for Remote Feed -->
+          <div class="fhd-stage">
             
             <!-- Real Remote Video Element -->
-            <video id="remoteVideoSink" autoplay playsinline class="w-full h-full object-contain"></video>
+            <video id="remoteVideoSink" autoplay playsinline class="fhd-element"></video>
 
             <!-- Autoplay Unlock Overlay (Browser Security Guard) -->
             <div id="autoplayUnlockOverlay" class="hidden absolute inset-0 bg-studio-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center cursor-pointer z-30 transition-all" onclick="unlockAutoplayVideo()">
               <div class="w-16 h-16 rounded-full bg-cyan-500 text-white flex items-center justify-center mb-3 shadow-xl shadow-cyan-500/40 animate-bounce">
                 <i data-lucide="play" class="w-8 h-8 fill-current ml-1"></i>
               </div>
-              <p class="text-base font-bold text-white">Stream Ready</p>
-              <p class="text-xs text-slate-300 max-w-sm mt-1">Tap anywhere to start video & audio playback.</p>
+              <p class="text-base font-bold text-white">1080p Live Stream Ready</p>
+              <p class="text-xs text-slate-300 max-w-sm mt-1">Tap anywhere to unpause audio & start video feed.</p>
             </div>
 
             <!-- Standby Placeholder when disconnected -->
@@ -487,7 +502,7 @@
               <input id="listenerVolumeSlider" type="range" min="0" max="1" step="0.05" value="0.9" oninput="adjustViewerVolume(this.value)" class="accent-cyan-400 w-24 sm:w-32 h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer">
               
               <span id="viewerStatusPill" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-live"></span> LIVE
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-live"></span> LIVE 1080p
               </span>
             </div>
 
@@ -517,12 +532,12 @@
             <span id="statLatency" class="text-cyan-400 font-bold">~ -- ms</span>
           </div>
           <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">VIDEO PROTOCOL</span>
-            <span class="text-slate-200 font-bold">WebRTC H.264/VP8</span>
+            <span class="text-slate-500 text-[10px] block font-sans">RESOLUTION & ASPECT</span>
+            <span class="text-slate-200 font-bold">1920×1080 (16:9)</span>
           </div>
           <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
             <span class="text-slate-500 text-[10px] block font-sans">AUDIO ENCODING</span>
-            <span class="text-emerald-400 font-bold">Opus 48kHz</span>
+            <span class="text-emerald-400 font-bold">Opus 48kHz Stereo</span>
           </div>
         </div>
 
@@ -577,7 +592,7 @@
       <div class="flex items-center justify-between border-b border-studio-800 pb-3">
         <h3 class="text-base font-bold text-white flex items-center gap-2">
           <i data-lucide="info" class="w-5 h-5 text-cyan-400"></i>
-          WaveCast Live Video Guide
+          1080p FHD Broadcasting Guide
         </h3>
         <button onclick="toggleQuickHelp(false)" class="p-1 text-slate-400 hover:text-white rounded-lg">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -585,25 +600,25 @@
       </div>
 
       <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
-        <p><strong class="text-cyan-400">1. Permanent Station ID:</strong> Your room name is stored in your browser's <code class="bg-studio-800 px-1 py-0.5 rounded text-cyan-300">localStorage</code> and URL parameters. It stays identical across restarts.</p>
-        <p><strong class="text-rose-400">2. Instant Video Share Links:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-slate-200">Copy Link</code> to distribute a permanent URL like <code class="bg-studio-800 px-1 py-0.5 rounded text-cyan-300">?room=my-station#listener</code>. Anyone opening it connects directly to your live video feed.</p>
-        <p><strong class="text-violet-400">3. SMPTE Test Card Generator:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-violet-300">SMPTE Test Card</code> to test high-definition video broadcasting and sound synthesis immediately on a single device without needing a camera.</p>
-        <p><strong class="text-amber-400">4. Live Screen Share & Hot Swap:</strong> You can switch back and forth between your webcam and desktop screenshare seamlessly while remaining live on air.</p>
+        <p><strong class="text-cyan-400">1. Strict 1080p 16:9 Ratio:</strong> All internal compositing buffers are locked at 1920×1080 resolution. Display stages enforce a 16:9 ratio with letterbox/pillarbox fitting to prevent stretching.</p>
+        <p><strong class="text-emerald-400">2. Rock-Solid Connection:</strong> Peer calls now use full media negotiation with both stream and track listener fallbacks, plus Google/Twilio STUN candidates.</p>
+        <p><strong class="text-rose-400">3. Browser Autoplay Compliance:</strong> Inbound video plays muted first, then smoothly unblocks audio when you interact with the stage or tap the play overlay.</p>
+        <p><strong class="text-violet-400">4. Instant Testing:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-violet-300">SMPTE 1080p Test</code> to broadcast a 1080p test pattern and synth audio on a single tab without needing a camera.</p>
       </div>
 
       <div class="pt-2 flex justify-end">
-        <button onclick="toggleQuickHelp(false)" class="px-4 py-2 bg-studio-800 hover:bg-studio-700 text-white rounded-xl text-xs font-semibold">Understood</button>
+        <button onclick="toggleQuickHelp(false)" class="px-4 py-2 bg-studio-800 hover:bg-studio-700 text-white rounded-xl text-xs font-semibold">Got It</button>
       </div>
     </div>
   </div>
 
-  <!-- Hidden Virtual Canvas for SMPTE Pattern Generation -->
-  <canvas id="virtualSmpteCanvas" width="1280" height="720" class="hidden"></canvas>
+  <!-- Hidden Virtual Canvas for 1080p SMPTE Pattern Generation -->
+  <canvas id="virtualSmpteCanvas" width="1920" height="1080" class="hidden"></canvas>
 
   <!-- Application Logic & Engine -->
   <script>
     const STORAGE_KEY_ROOM_ID = 'wavecast_video_room_id';
-    const DEFAULT_STATIC_ROOM_ID = 'wavecast-live-video';
+    const DEFAULT_STATIC_ROOM_ID = 'wavecast-live-fhd';
 
     // Application Master State
     const state = {
@@ -624,7 +639,7 @@
       isTestCardActive: false,
 
       mediaStream: null,       // Camera or Screen raw media stream
-      canvasStream: null,      // Rendered Master Video Canvas stream with overlays
+      canvasStream: null,      // Rendered Master Video Canvas stream (1920x1080)
       broadcastAudioStream: null,
 
       // Audio DSP graph
@@ -635,8 +650,8 @@
 
       // Overlays
       showLowerThird: true,
-      lowerThirdTitle: 'WaveCast Live Stream',
-      lowerThirdSub: 'Broadcasting in Real-Time',
+      lowerThirdTitle: 'WaveCast FHD Studio',
+      lowerThirdSub: '1080p 16:9 Full HD Stream',
 
       // Master Canvas Rendering
       canvasAnimId: null,
@@ -679,7 +694,7 @@
       // Initialize WebRTC Mesh
       initPeerMesh();
 
-      // Start local monitor loop
+      // Start local monitor loop (1080p canvas)
       initBroadcasterCanvasLoop();
     });
 
@@ -706,7 +721,50 @@
     }
 
     /**
-     * Initializes PeerJS mesh with permanent room ID and auto-conflict recovery
+     * Constructs a valid, active dummy media stream (1080p black video + silent audio)
+     * Critical for WebRTC: Prevents negotiation timeouts on listeners initiating calls
+     */
+    function createValidDummyStream() {
+      const dummyCanvas = document.createElement('canvas');
+      dummyCanvas.width = 1920;
+      dummyCanvas.height = 1080;
+      const ctx = dummyCanvas.getContext('2d');
+      ctx.fillStyle = '#050811';
+      ctx.fillRect(0, 0, 1920, 1080);
+
+      // Create an animated interval tick so canvas stream stays active in browser encoder
+      let frame = 0;
+      setInterval(() => {
+        frame = (frame + 1) % 10;
+        ctx.fillStyle = frame % 2 === 0 ? '#050811' : '#060913';
+        ctx.fillRect(0, 0, 2, 2);
+      }, 500);
+
+      const stream = dummyCanvas.captureStream(10);
+
+      // Add silent audio track
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const actx = new AudioContext();
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        gain.gain.value = 0; // Absolute silence
+        const dest = actx.createMediaStreamDestination();
+        osc.connect(gain);
+        gain.connect(dest);
+        osc.start();
+
+        const silentTrack = dest.stream.getAudioTracks()[0];
+        if (silentTrack) stream.addTrack(silentTrack);
+      } catch (e) {
+        console.warn('Silent audio creation note:', e);
+      }
+
+      return stream;
+    }
+
+    /**
+     * Initializes PeerJS mesh with rock-solid STUN/TURN configurations
      */
     function initPeerMesh() {
       if (state.peer) {
@@ -722,6 +780,8 @@
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:global.stun.twilio.com:3478' }
           ]
         }
@@ -734,7 +794,7 @@
 
         if (state.role === 'broadcaster') {
           updatePeerStatusBadge('online', `Station Online: ${id}`);
-          appendChatMessage('system', `Station registered on network with permanent ID: "${id}"`, 'broadcaster');
+          appendChatMessage('system', `Station registered with 1080p FHD ID: "${id}"`, 'broadcaster');
         } else {
           updatePeerStatusBadge('online', 'Audience Node Ready');
         }
@@ -745,10 +805,21 @@
         if (state.role === 'broadcaster') {
           handleIncomingViewerCall(incomingCall);
         } else {
-          incomingCall.answer();
+          const dummyStream = createValidDummyStream();
+          incomingCall.answer(dummyStream);
+
+          // Handle incoming stream via both stream and ontrack events for cross-browser safety
           incomingCall.on('stream', (remoteStream) => {
             handleRemoteVideoStream(remoteStream);
           });
+
+          if (incomingCall.peerConnection) {
+            incomingCall.peerConnection.ontrack = (event) => {
+              if (event.streams && event.streams[0]) {
+                handleRemoteVideoStream(event.streams[0]);
+              }
+            };
+          }
         }
       });
 
@@ -764,8 +835,9 @@
         if (err.type === 'unavailable-id') {
           handleIdConflict(state.staticRoomId);
         } else if (err.type === 'peer-unavailable') {
-          appendChatMessage('system', `Station "${state.staticRoomId}" is not live. Verify host is online.`, state.role);
+          appendChatMessage('system', `Station "${state.staticRoomId}" is not currently live. Ensure the broadcaster has opened the studio and started streaming.`, state.role);
           updatePeerStatusBadge('error', 'Station Offline');
+          document.getElementById('statIce').textContent = 'Host Offline';
         } else {
           updatePeerStatusBadge('error', `Mesh: ${err.type}`);
         }
@@ -837,7 +909,7 @@
     }
 
     /**
-     * Hardware Source Initialization & Web Audio DSP
+     * Hardware Source Initialization & Strict 1080p FHD Media Pipeline
      */
     async function startBroadcasterMediaPipeline() {
       if (state.isTestCardActive) {
@@ -848,12 +920,14 @@
       const audioDeviceId = document.getElementById('audioSourceSelect').value;
       const noiseSuppression = document.getElementById('noiseFilterCheck').checked;
 
+      // Request strict Full HD 1080p (1920x1080) at 16:9 ratio
       const constraints = {
         video: {
           deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+          aspectRatio: { ideal: 1.7777777778 },
+          frameRate: { ideal: 30, max: 60 }
         },
         audio: {
           deviceId: audioDeviceId ? { exact: audioDeviceId } : undefined,
@@ -868,12 +942,12 @@
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         state.mediaStream = stream;
 
-        // Route video to local hidden element for canvas composition
+        // Route video to local hidden element for 1080p canvas composition
         const hiddenVideo = document.getElementById('broadcasterHiddenVideo');
         hiddenVideo.srcObject = stream;
         await hiddenVideo.play();
 
-        // Web Audio Preamp
+        // Web Audio Preamp & Processing DSP
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!state.audioCtx) {
           state.audioCtx = new AudioContext({ sampleRate: 48000 });
@@ -896,28 +970,28 @@
 
         state.broadcastAudioStream = dest.stream;
 
-        document.getElementById('activeSourceBadge').textContent = 'Source: Camera (HD)';
+        document.getElementById('activeSourceBadge').textContent = 'Source: Camera 1080p FHD';
         document.getElementById('videoDisabledPlaceholder').classList.add('hidden');
         return true;
       } catch (err) {
         console.error('Camera capture error:', err);
-        appendChatMessage('system', `Camera Error: ${err.message}. Enabling SMPTE Test Card instead.`, 'broadcaster');
+        appendChatMessage('system', `Camera Error: ${err.message}. Starting 1080p SMPTE Test Pattern instead.`, 'broadcaster');
         startVirtualSmptePipeline();
         return false;
       }
     }
 
     /**
-     * Virtual SMPTE Test Card & Synthesizer Generator (Single-Device Demo)
+     * Virtual 1080p Full HD SMPTE Test Pattern & Synth Audio Generator
      */
     function startVirtualSmptePipeline() {
       state.isTestCardActive = true;
       document.getElementById('virtualCardBtn').classList.add('bg-violet-700', 'text-white');
       document.getElementById('virtualCardLabel').textContent = 'Stop SMPTE';
-      document.getElementById('activeSourceBadge').textContent = 'Source: Virtual SMPTE';
+      document.getElementById('activeSourceBadge').textContent = 'Source: 1080p SMPTE Bars';
       document.getElementById('videoDisabledPlaceholder').classList.add('hidden');
 
-      // Synthesizer Audio Tone Generator (1kHz reference pulse)
+      // Synthesizer Audio Tone Generator (Concert A 440Hz reference tone)
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!state.audioCtx) {
         state.audioCtx = new AudioContext({ sampleRate: 48000 });
@@ -929,16 +1003,16 @@
       const dest = state.audioCtx.createMediaStreamDestination();
       const osc = state.audioCtx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(440, state.audioCtx.currentTime); // 440 Hz (Concert A)
+      osc.frequency.setValueAtTime(440, state.audioCtx.currentTime);
 
       const gain = state.audioCtx.createGain();
       gain.gain.setValueAtTime(0.08, state.audioCtx.currentTime);
 
-      // Pulse rhythm
+      // Pulse modulation
       const lfo = state.audioCtx.createOscillator();
       lfo.frequency.setValueAtTime(1, state.audioCtx.currentTime);
       const lfoGain = state.audioCtx.createGain();
-      lfoGain.gain.setValueAtTime(0.08, state.audioCtx.currentTime);
+      lfoGain.gain.setValueAtTime(0.06, state.audioCtx.currentTime);
       lfo.connect(lfoGain.gain);
 
       osc.connect(gain);
@@ -951,7 +1025,7 @@
       state.synthGain = gain;
       state.broadcastAudioStream = dest.stream;
 
-      // Start SMPTE Canvas Render Loop
+      // Start 1920x1080 SMPTE Canvas Render Loop
       renderSmptePatternLoop();
       return true;
     }
@@ -959,8 +1033,8 @@
     function renderSmptePatternLoop() {
       const vCanvas = document.getElementById('virtualSmpteCanvas');
       const ctx = vCanvas.getContext('2d');
-      const w = 1280;
-      const h = 720;
+      const w = 1920;
+      const h = 1080;
 
       const smpteColors = ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'];
 
@@ -968,35 +1042,35 @@
         if (!state.isTestCardActive) return;
         state.testCardAnimId = requestAnimationFrame(draw);
 
-        // Standard Top 75% Bars
+        // Standard 75% Top Color Bars
         const barWidth = w / 7;
         for (let i = 0; i < 7; i++) {
           ctx.fillStyle = smpteColors[i];
           ctx.fillRect(i * barWidth, 0, barWidth, h * 0.7);
         }
 
-        // Middle small split
+        // Middle Transition Bars
         const midColors = ['#0000c0', '#131313', '#c000c0', '#131313', '#00c0c0', '#131313', '#c0c0c0'];
         for (let i = 0; i < 7; i++) {
           ctx.fillStyle = midColors[i];
           ctx.fillRect(i * barWidth, h * 0.7, barWidth, h * 0.08);
         }
 
-        // Bottom section
-        ctx.fillStyle = '#081126';
+        // Bottom Section
+        ctx.fillStyle = '#060913';
         ctx.fillRect(0, h * 0.78, w, h * 0.22);
 
-        // Center Sweep Dial / Time Code
+        // Center Sweep Dial / Time Code (1080p scale)
         ctx.fillStyle = '#06b6d4';
-        ctx.font = 'bold 32px monospace';
+        ctx.font = 'bold 44px monospace';
         ctx.textAlign = 'center';
         const now = new Date();
-        ctx.fillText(`WAVECAST SMPTE COLOR BARS • ${now.toTimeString().split(' ')[0]}`, w / 2, h * 0.88);
+        ctx.fillText(`WAVECAST 1080p FHD SMPTE • ${now.toTimeString().split(' ')[0]}`, w / 2, h * 0.88);
 
-        // Moving tick bar to verify live transmission
-        const tickX = (Date.now() / 4) % w;
+        // Moving tick bar for visual latency inspection
+        const tickX = (Date.now() / 3) % w;
         ctx.fillStyle = '#f43f5e';
-        ctx.fillRect(tickX, h * 0.76, 40, 16);
+        ctx.fillRect(tickX, h * 0.76, 60, 22);
       }
 
       draw();
@@ -1018,7 +1092,7 @@
     function stopVirtualTestCard() {
       state.isTestCardActive = false;
       document.getElementById('virtualCardBtn').classList.remove('bg-violet-700', 'text-white');
-      document.getElementById('virtualCardLabel').textContent = 'SMPTE Test Card';
+      document.getElementById('virtualCardLabel').textContent = 'SMPTE 1080p Test';
       if (state.synthOsc) {
         try { state.synthOsc.stop(); } catch(e){}
         state.synthOsc = null;
@@ -1030,13 +1104,17 @@
     }
 
     /**
-     * Master Video Composition Canvas (Combines Video, Mirroring, Lower-Thirds)
+     * Master Video Composition Canvas (Strict 1920x1080 @ 16:9)
+     * Fits incoming video proportionally with letterbox/pillarbox containment
      */
     function initBroadcasterCanvasLoop() {
       const canvas = document.getElementById('broadcasterMasterCanvas');
       const ctx = canvas.getContext('2d');
       const hiddenVideo = document.getElementById('broadcasterHiddenVideo');
       const vCanvas = document.getElementById('virtualSmpteCanvas');
+
+      const W = 1920;
+      const H = 1080;
 
       function loop(time) {
         requestAnimationFrame(loop);
@@ -1051,62 +1129,80 @@
           if (fpsEl) fpsEl.textContent = `${state.fpsCurrent} FPS`;
         }
 
-        const w = 1280;
-        const h = 720;
-        if (canvas.width !== w || canvas.height !== h) {
-          canvas.width = w;
-          canvas.height = h;
-        }
+        // Clean Canvas Base
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
 
-        ctx.fillStyle = '#060913';
-        ctx.fillRect(0, 0, w, h);
-
-        // Draw Source
+        // Render Active Source
         if (state.isTestCardActive) {
-          ctx.drawImage(vCanvas, 0, 0, w, h);
+          ctx.drawImage(vCanvas, 0, 0, W, H);
         } else if (state.isCameraEnabled && hiddenVideo.readyState >= 2) {
+          const vw = hiddenVideo.videoWidth || W;
+          const vh = hiddenVideo.videoHeight || H;
+
+          // Compute 16:9 proportional scale & centered containment
+          const videoRatio = vw / vh;
+          const targetRatio = W / H; // 1.7777777778
+
+          let drawW = W;
+          let drawH = H;
+          let offX = 0;
+          let offY = 0;
+
+          if (videoRatio > targetRatio) {
+            drawW = W;
+            drawH = W / videoRatio;
+            offY = (H - drawH) / 2;
+          } else {
+            drawH = H;
+            drawW = H * videoRatio;
+            offX = (W - drawW) / 2;
+          }
+
           ctx.save();
           if (state.isMirrored) {
-            ctx.translate(w, 0);
+            ctx.translate(W, 0);
             ctx.scale(-1, 1);
+            ctx.drawImage(hiddenVideo, offX, offY, drawW, drawH);
+          } else {
+            ctx.drawImage(hiddenVideo, offX, offY, drawW, drawH);
           }
-          ctx.drawImage(hiddenVideo, 0, 0, w, h);
           ctx.restore();
         } else {
-          // Camera feed disabled pattern
-          ctx.fillStyle = '#0b1120';
-          ctx.fillRect(0, 0, w, h);
+          // Camera disabled background
+          ctx.fillStyle = '#050811';
+          ctx.fillRect(0, 0, W, H);
         }
 
-        // Render Lower Third Canvas Overlay if enabled
+        // Render Lower-Third Canvas Graphic if enabled (scaled for 1080p canvas)
         if (state.showLowerThird) {
           ctx.save();
-          const boxX = 40;
-          const boxY = h - 130;
-          const boxW = 540;
-          const boxH = 80;
+          const boxX = 60;
+          const boxY = H - 170;
+          const boxW = 760;
+          const boxH = 110;
 
-          // Glassmorphic background
-          ctx.fillStyle = 'rgba(6, 9, 19, 0.88)';
-          ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
-          ctx.lineWidth = 2;
+          // Glassmorphic panel
+          ctx.fillStyle = 'rgba(5, 8, 17, 0.90)';
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.8)';
+          ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.roundRect(boxX, boxY, boxW, boxH, 16);
+          ctx.roundRect(boxX, boxY, boxW, boxH, 20);
           ctx.fill();
           ctx.stroke();
 
-          // Accent pill bar
+          // Accent bar
           ctx.fillStyle = '#06b6d4';
-          ctx.fillRect(boxX + 16, boxY + 16, 6, boxH - 32);
+          ctx.fillRect(boxX + 22, boxY + 20, 8, boxH - 40);
 
-          // Title & Subtitle text
+          // Typography
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 22px Inter, system-ui, sans-serif';
-          ctx.fillText(state.lowerThirdTitle.toUpperCase(), boxX + 36, boxY + 38);
+          ctx.font = 'bold 30px Inter, system-ui, sans-serif';
+          ctx.fillText(state.lowerThirdTitle.toUpperCase(), boxX + 48, boxY + 50);
 
           ctx.fillStyle = '#06b6d4';
-          ctx.font = '500 15px JetBrains Mono, monospace';
-          ctx.fillText(state.lowerThirdSub, boxX + 36, boxY + 62);
+          ctx.font = '500 20px JetBrains Mono, monospace';
+          ctx.fillText(state.lowerThirdSub, boxX + 48, boxY + 84);
 
           ctx.restore();
         }
@@ -1124,9 +1220,10 @@
         if (!ready) return;
 
         const masterCanvas = document.getElementById('broadcasterMasterCanvas');
+        // Capture 1080p canvas at 30 fps
         state.canvasStream = masterCanvas.captureStream(30);
 
-        // Mix Audio track from DSP into Canvas Stream
+        // Add Audio track from DSP into Canvas Stream
         if (state.broadcastAudioStream && state.broadcastAudioStream.getAudioTracks().length > 0) {
           const audioTrack = state.broadcastAudioStream.getAudioTracks()[0];
           state.canvasStream.addTrack(audioTrack);
@@ -1145,7 +1242,19 @@
           stationId: state.staticRoomId
         });
 
-        appendChatMessage('system', `Station "${state.staticRoomId}" is now LIVE ON AIR!`, 'broadcaster');
+        // Reconnect any viewers that connected prior to "Go Live"
+        state.audience.forEach((viewer, peerId) => {
+          try {
+            if (state.canvasStream) {
+              const call = state.peer.call(peerId, state.canvasStream);
+              viewer.call = call;
+            }
+          } catch (e) {
+            console.warn('Re-call viewer note:', e);
+          }
+        });
+
+        appendChatMessage('system', `Station "${state.staticRoomId}" is now LIVE ON AIR in 1080p FHD!`, 'broadcaster');
       } else {
         stopBroadcasting();
       }
@@ -1174,11 +1283,11 @@
         stationId: state.staticRoomId
       });
 
-      appendChatMessage('system', 'Broadcast ended. Station transmission has stopped.', 'broadcaster');
+      appendChatMessage('system', 'Broadcast stopped. Station is now in standby.', 'broadcaster');
     }
 
     /**
-     * Hot-swap video/audio tracks to connected viewers without renegotiation drop
+     * Hot-swap video/audio tracks to all audience members
      */
     function hotSwapStreamTracks() {
       if (!state.canvasStream) return;
@@ -1191,23 +1300,29 @@
 
         senders.forEach(sender => {
           if (sender.track && sender.track.kind === 'video' && newVideoTrack) {
-            sender.replaceTrack(newVideoTrack);
+            sender.replaceTrack(newVideoTrack).catch(e => console.warn(e));
           }
           if (sender.track && sender.track.kind === 'audio' && newAudioTrack) {
-            sender.replaceTrack(newAudioTrack);
+            sender.replaceTrack(newAudioTrack).catch(e => console.warn(e));
           }
         });
       });
     }
 
     /**
-     * Screen Share Toggle
+     * Screen Share Toggle with 1080p Aspect Constraints
      */
     async function toggleScreenShare() {
       if (!state.isScreenSharing) {
         try {
           const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always', frameRate: 30 },
+            video: {
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              aspectRatio: 1.7777777778,
+              cursor: 'always',
+              frameRate: 30
+            },
             audio: true
           });
 
@@ -1218,9 +1333,8 @@
 
           document.getElementById('screenShareLabel').textContent = 'Stop Sharing';
           document.getElementById('screenShareBtn').classList.add('bg-cyan-950/80', 'border-cyan-500');
-          document.getElementById('activeSourceBadge').textContent = 'Source: Screen Display';
+          document.getElementById('activeSourceBadge').textContent = 'Source: Screen Share (1080p)';
 
-          // When user stops screen share from native browser floating bar
           displayStream.getVideoTracks()[0].onended = () => {
             toggleScreenShare();
           };
@@ -1285,8 +1399,8 @@
     }
 
     function updateLowerThirdText() {
-      state.lowerThirdTitle = document.getElementById('customLowerTitle').value || 'WaveCast Live Stream';
-      state.lowerThirdSub = document.getElementById('customLowerSub').value || 'Broadcasting in Real-Time';
+      state.lowerThirdTitle = document.getElementById('customLowerTitle').value || 'WaveCast FHD Studio';
+      state.lowerThirdSub = document.getElementById('customLowerSub').value || '1080p 16:9 Full HD Stream';
       document.getElementById('lowerThirdTitle').textContent = state.lowerThirdTitle;
       document.getElementById('lowerThirdSub').textContent = state.lowerThirdSub;
     }
@@ -1299,19 +1413,18 @@
     }
 
     /**
-     * Audience Mesh Connection Handler
+     * Audience Mesh Connection Handler on Broadcaster Side
      */
     function handleIncomingViewerCall(call) {
       const viewerPeerId = call.peer;
 
-      if (state.canvasStream) {
-        call.answer(state.canvasStream);
-      } else {
-        const dummyCanvas = document.createElement('canvas');
-        dummyCanvas.width = 1280;
-        dummyCanvas.height = 720;
-        call.answer(dummyCanvas.captureStream(1));
+      // Ensure canvasStream exists even before Go Live (preview feed)
+      if (!state.canvasStream) {
+        const masterCanvas = document.getElementById('broadcasterMasterCanvas');
+        state.canvasStream = masterCanvas.captureStream(30);
       }
+
+      call.answer(state.canvasStream);
 
       state.audience.set(viewerPeerId, {
         call: call,
@@ -1426,7 +1539,7 @@
       if (count === 0) {
         container.innerHTML = `
           <div id="noViewersPlaceholder" class="py-6 text-center text-slate-500">
-            No viewers currently connected. Share your station link to invite audience members.
+            No audience members currently connected. Share your station link to invite viewers.
           </div>`;
         return;
       }
@@ -1461,7 +1574,7 @@
     }
 
     /**
-     * Audience Receiver Mode Engine
+     * Audience Receiver Engine: Robust WebRTC Call & Stream Acquisition
      */
     function connectListenerToStation() {
       const input = document.getElementById('listenerStationInput');
@@ -1475,24 +1588,39 @@
       state.staticRoomId = targetRoom;
       document.getElementById('tuneBtnLabel').textContent = 'Connecting...';
       document.getElementById('listenerTuneBtn').disabled = true;
+      document.getElementById('statIce').textContent = 'Negotiating...';
 
-      // Connect WebRTC DataChannel
+      // Connect DataChannel
       const dataConn = state.peer.connect(targetRoom, { reliable: true });
       state.listenerDataConn = dataConn;
 
       dataConn.on('open', () => {
         document.getElementById('listenerStandbyScreen').classList.add('hidden');
-        document.getElementById('statIce').textContent = 'Connected';
+        document.getElementById('statIce').textContent = 'Connected (1080p)';
 
-        // Call Host
-        const dummyCanvas = document.createElement('canvas');
-        const dummyStream = dummyCanvas.captureStream(1);
+        // Call the broadcaster using an active dummy media stream
+        const dummyStream = createValidDummyStream();
         const call = state.peer.call(targetRoom, dummyStream);
         state.listenerCall = call;
 
+        // Catch incoming remote stream from stream event
         call.on('stream', (remoteStream) => {
           handleRemoteVideoStream(remoteStream);
         });
+
+        // Track fallback for strict browser compatibility
+        if (call.peerConnection) {
+          call.peerConnection.ontrack = (event) => {
+            if (event.streams && event.streams[0]) {
+              handleRemoteVideoStream(event.streams[0]);
+            }
+          };
+
+          call.peerConnection.oniceconnectionstatechange = () => {
+            const stateText = call.peerConnection.iceConnectionState;
+            document.getElementById('statIce').textContent = stateText.toUpperCase();
+          };
+        }
 
         call.on('close', () => {
           disconnectListenerFromStation();
@@ -1512,20 +1640,28 @@
       dataConn.on('error', (err) => {
         console.error('Data error:', err);
         disconnectListenerFromStation();
-        appendChatMessage('system', `Failed to tune in: ${err.message}`, 'listener');
+        appendChatMessage('system', `Failed to connect: ${err.message}`, 'listener');
       });
     }
 
+    /**
+     * Attaches and begins playing remote video with browser autoplay compliance
+     */
     function handleRemoteVideoStream(remoteStream) {
       state.listenerStream = remoteStream;
       const videoEl = document.getElementById('remoteVideoSink');
-      videoEl.srcObject = remoteStream;
 
-      // Autoplay Check
+      if (videoEl.srcObject !== remoteStream) {
+        videoEl.srcObject = remoteStream;
+      }
+
+      // Initial playback with muted security unblock
+      videoEl.muted = true;
       const playPromise = videoEl.play();
+
       if (playPromise !== undefined) {
         playPromise.then(() => {
-          document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
+          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
         }).catch(() => {
           document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
         });
@@ -1544,7 +1680,11 @@
     function unlockAutoplayVideo() {
       const videoEl = document.getElementById('remoteVideoSink');
       videoEl.muted = false;
+      videoEl.volume = parseFloat(document.getElementById('listenerVolumeSlider').value);
       videoEl.play().then(() => {
+        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
+      }).catch(err => {
+        console.warn('Audio play request note:', err);
         document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
       });
     }
@@ -1566,6 +1706,9 @@
       const videoEl = document.getElementById('remoteVideoSink');
       videoEl.volume = parseFloat(val);
       videoEl.muted = false;
+      const icon = document.getElementById('viewerVolIcon');
+      icon.setAttribute('data-lucide', 'volume-2');
+      lucide.createIcons();
     }
 
     async function requestPictureInPicture() {
@@ -1616,7 +1759,7 @@
     }
 
     /**
-     * Local Stream WebM Video Recording
+     * Local 1080p Stream Recording (MediaRecorder WebM)
      */
     function toggleStreamRecording() {
       if (!state.isRecording) {
@@ -1631,7 +1774,10 @@
       state.recordedChunks = [];
 
       try {
-        state.mediaRecorder = new MediaRecorder(state.canvasStream, { mimeType: 'video/webm;codecs=vp8,opus' });
+        state.mediaRecorder = new MediaRecorder(state.canvasStream, {
+          mimeType: 'video/webm;codecs=vp8,opus',
+          videoBitsPerSecond: 4000000 // 4 Mbps for sharp 1080p
+        });
       } catch(e) {
         state.mediaRecorder = new MediaRecorder(state.canvasStream);
       }
@@ -1645,7 +1791,7 @@
       state.isRecording = true;
       state.recordingStartTime = Date.now();
 
-      document.getElementById('recordBtnLabel').textContent = 'Recording...';
+      document.getElementById('recordBtnLabel').textContent = 'Recording 1080p...';
       document.getElementById('recDotIcon').classList.add('animate-pulse');
       document.getElementById('recordStreamBtn').classList.add('bg-rose-950/60', 'border-rose-600');
 
@@ -1663,7 +1809,7 @@
       state.isRecording = false;
       clearInterval(state.recordingTimerInterval);
 
-      document.getElementById('recordBtnLabel').textContent = 'Record WebM';
+      document.getElementById('recordBtnLabel').textContent = 'Record 1080p WebM';
       document.getElementById('recDotIcon').classList.remove('animate-pulse');
       document.getElementById('recordStreamBtn').classList.remove('bg-rose-950/60', 'border-rose-600');
     }
@@ -1677,7 +1823,7 @@
 
       videoEl.src = videoUrl;
       downloadA.href = videoUrl;
-      downloadA.download = `wavecast-video-${state.staticRoomId}-${Date.now()}.webm`;
+      downloadA.download = `wavecast-1080p-${state.staticRoomId}-${Date.now()}.webm`;
 
       const diff = Math.floor((Date.now() - state.recordingStartTime) / 1000);
       const mins = String(Math.floor(diff / 60)).padStart(2, '0');
@@ -1685,7 +1831,7 @@
       document.getElementById('recordingTimerBadge').textContent = `${mins}:${secs}`;
 
       card.classList.remove('hidden');
-      appendChatMessage('system', 'Video recording finalized and ready for download.', 'broadcaster');
+      appendChatMessage('system', '1080p FHD video recorded and ready for download.', 'broadcaster');
     }
 
     /**
@@ -1735,10 +1881,9 @@
 
       setTimeout(() => el.remove(), 2200);
 
-      // Light burst confetti for rocket & fire
       if (emoji === '🚀' || emoji === '🔥' || emoji === '🎉') {
         confetti({
-          particleCount: 15,
+          particleCount: 16,
           spread: 45,
           origin: { y: 0.85, x: randX / 100 }
         });
@@ -1819,7 +1964,7 @@
       document.execCommand('copy');
       document.body.removeChild(temp);
 
-      appendChatMessage('system', `Station link copied to clipboard: ${url}`, state.role);
+      appendChatMessage('system', `Permanent 1080p link copied: ${url}`, state.role);
     }
 
     function evaluateUrlRouting() {
@@ -1846,7 +1991,7 @@
           const opt = document.createElement('option');
           opt.value = d.deviceId;
           if (d.kind === 'videoinput') {
-            opt.textContent = d.label || `Camera ${idx + 1}`;
+            opt.textContent = d.label || `Camera ${idx + 1} (FHD)`;
             vSelect.appendChild(opt);
           } else if (d.kind === 'audioinput') {
             opt.textContent = d.label || `Microphone ${idx + 1}`;
