@@ -894,20 +894,16 @@
      * Broadcaster handles a new viewer requesting connection
      */
     async function handleBroadcasterReceiveJoin(listenerId) {
-      // If broadcaster is not currently live or has no stream, start virtual SMPTE test feed automatically
+      // Ensure broadcaster media is initialized if live
       if (!state.isBroadcasting && !state.canvasStream) {
-        startVirtualSmptePipeline();
-        state.isBroadcasting = true;
-        const btnLabel = document.getElementById('broadcastBtnLabel');
-        if (btnLabel) btnLabel.textContent = 'End Broadcast';
-        const toggleBtn = document.getElementById('toggleBroadcastBtn');
-        if (toggleBtn) toggleBtn.classList.replace('bg-rose-600', 'bg-slate-700');
-        const onAirBadge = document.getElementById('hostOnAirBadge');
-        if (onAirBadge) onAirBadge.classList.replace('hidden', 'inline-flex');
-        const standbyBadge = document.getElementById('hostStandbyBadge');
-        if (standbyBadge) standbyBadge.classList.add('hidden');
-        const recBtn = document.getElementById('recordStreamBtn');
-        if (recBtn) recBtn.disabled = false;
+        // If not broadcasting yet, wait for host to go live rather than forcing SMPTE
+        sendSignal({
+          type: 'stream-status',
+          senderId: state.broadcasterId,
+          targetId: listenerId,
+          status: 'offline'
+        });
+        return;
       }
 
       if (state.audience.has(listenerId)) {
@@ -1165,7 +1161,7 @@
       state.staticRoomId = targetRoom;
       document.getElementById('tuneBtnLabel').textContent = 'Connecting...';
       document.getElementById('listenerTuneBtn').disabled = true;
-      document.getElementById('statIce').textContent = 'CONNECTING...';
+      document.getElementById('statIce').textContent = 'SEARCHING HOST...';
 
       // Send join request through local canvas signaling mesh
       sendSignal({
@@ -1181,21 +1177,19 @@
       document.getElementById('listenerChatInput').disabled = false;
       document.getElementById('listenerSendBtn').disabled = false;
 
-      // Auto fallback: If broadcaster is in the same tab or room is idle, loopback connects directly
+      // In-tab loopback check: if broadcaster is live in the SAME window, connect directly
       if (state.joinTimeoutTimer) clearTimeout(state.joinTimeoutTimer);
       state.joinTimeoutTimer = setTimeout(() => {
         const videoEl = document.getElementById('remoteVideoSink');
         if (!videoEl.srcObject || videoEl.paused) {
-          // If broadcaster is present in this window, link streams
-          if (state.canvasStream) {
+          if (state.isBroadcasting && state.canvasStream) {
             handleRemoteVideoStream(state.canvasStream);
             document.getElementById('statIce').textContent = 'CONNECTED (1080p Loopback)';
-          } else if (!state.isBroadcasting) {
-            // Auto start SMPTE pattern and attach
-            handleBroadcasterReceiveJoin(state.listenerId);
+          } else {
+            document.getElementById('statIce').textContent = 'WAITING FOR BROADCASTER...';
           }
         }
-      }, 900);
+      }, 1500);
     }
 
     function disconnectListenerFromStation() {
@@ -1328,22 +1322,32 @@
      * Hardware Source Initialization & Strict 1080p FHD Media Pipeline
      */
     async function startBroadcasterMediaPipeline() {
-      if (state.isTestCardActive) {
-        return startVirtualSmptePipeline();
+      // Force disable SMPTE test mode so real live camera takes priority
+      state.isTestCardActive = false;
+      if (state.synthOsc) {
+        try { state.synthOsc.stop(); } catch(e){}
+        state.synthOsc = null;
       }
+      if (state.testCardAnimId) {
+        cancelAnimationFrame(state.testCardAnimId);
+        state.testCardAnimId = null;
+      }
+      const virtualBtn = document.getElementById('virtualCardBtn');
+      if (virtualBtn) virtualBtn.classList.remove('bg-violet-700', 'text-white');
+      const virtualLabel = document.getElementById('virtualCardLabel');
+      if (virtualLabel) virtualLabel.textContent = 'SMPTE 1080p Test';
 
       const videoDeviceId = document.getElementById('videoSourceSelect').value;
       const audioDeviceId = document.getElementById('audioSourceSelect').value;
       const noiseSuppression = document.getElementById('noiseFilterCheck').checked;
 
-      // Request strict Full HD 1080p (1920x1080) at 16:9 ratio
+      // Request Full HD 1080p (1920x1080) with resilient ideal constraints (no hard min limits to avoid OverconstrainedError)
       const constraints = {
         video: {
           deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined,
-          width: { ideal: 1920, min: 1280 },
-          height: { ideal: 1080, min: 720 },
-          aspectRatio: { ideal: 1.7777777778 },
-          frameRate: { ideal: 30, max: 60 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          aspectRatio: { ideal: 1.7777777778 }
         },
         audio: {
           deviceId: audioDeviceId ? { exact: audioDeviceId } : undefined,
@@ -1390,7 +1394,7 @@
         document.getElementById('videoDisabledPlaceholder').classList.add('hidden');
         return true;
       } catch (err) {
-        console.warn('Camera capture fallback notice:', err);
+        console.warn('Camera capture error:', err);
         appendChatMessage('system', `Camera unavailable: ${err.message}. Starting 1080p SMPTE Test Pattern instead.`, 'broadcaster');
         startVirtualSmptePipeline();
         return true;
@@ -1640,6 +1644,11 @@
      */
     async function toggleBroadcast() {
       if (!state.isBroadcasting) {
+        // If user was previously running SMPTE test card, stop it when going live with camera
+        if (state.isTestCardActive) {
+          stopVirtualTestCard();
+        }
+
         const ready = await startBroadcasterMediaPipeline();
         if (!ready) return;
 
