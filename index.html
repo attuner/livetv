@@ -15,11 +15,11 @@
           colors: {
             studio: {
               950: '#030712',
-              900: '#0b0f19',
-              850: '#111827',
-              800: '#1f2937',
-              700: '#374151',
-              600: '#4b5563',
+              900: '#090d16',
+              850: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+              600: '#475569',
               cyan: '#06b6d4',
               rose: '#f43f5e',
               emerald: '#10b981',
@@ -29,14 +29,11 @@
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace']
-          },
-          aspectRatio: {
-            '16/9': '16 / 9'
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
           }
         }
       }
-    }
+    };
   </script>
 
   <!-- Lucide Icons -->
@@ -45,74 +42,60 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
   <style>
-    @keyframes live-pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.35; transform: scale(0.92); }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
     }
     .pulse-live {
-      animation: live-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    @keyframes float-up {
+    @keyframes float-upward {
       0% { transform: translateY(0) scale(0.85); opacity: 1; }
-      100% { transform: translateY(-200px) scale(1.4); opacity: 0; }
+      100% { transform: translateY(-220px) scale(1.3); opacity: 0; }
     }
-    .floating-reaction {
+    .floating-emoji {
       position: absolute;
       pointer-events: none;
-      user-select: none;
-      animation: float-up 2.2s ease-out forwards;
-      z-index: 60;
+      animation: float-upward 2.2s ease-out forwards;
+      z-index: 70;
     }
-    /* Fixed 16:9 letterbox video viewport containment */
-    .fhd-stage {
+    /* Fixed 16:9 Letterbox Viewports */
+    .viewport-16-9 {
       aspect-ratio: 16 / 9;
       width: 100%;
-      max-width: 100%;
       background-color: #000000;
       position: relative;
       overflow: hidden;
-      border-radius: 1rem;
+      border-radius: 0.875rem;
     }
-    .fhd-element {
+    .video-fit-16-9 {
       width: 100%;
       height: 100%;
       object-fit: contain;
       background-color: #000000;
     }
-    /* Safe container keeps canvas rendering even when user switches to listener tab */
-    .studio-view-hidden {
-      display: none !important;
-    }
-    .studio-bg-dock {
-      position: fixed !important;
-      bottom: 0 !important;
-      right: 0 !important;
-      width: 320px !important;
-      height: 180px !important;
-      opacity: 0.01 !important;
-      pointer-events: none !important;
-      z-index: -99 !important;
-    }
+    /* Custom clean scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0b0f19; }
-    ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #374151; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
   </style>
 </head>
 
 <body class="bg-studio-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black antialiased relative overflow-x-hidden">
 
-  <!-- Floating Reaction Layer -->
-  <div id="reactionField" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+  <!-- Floating Live Reaction Container -->
+  <div id="reactionSurface" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
 
-  <!-- Header Navigation -->
+  <!-- Main Top Bar -->
   <header class="border-b border-studio-800 bg-studio-900/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
       
       <!-- Brand & Resolution Indicator -->
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-violet-600 to-rose-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 flex-shrink-0">
-          <i data-lucide="video" class="w-5 h-5 text-white"></i>
+          <i data-lucide="radio" class="w-5 h-5 text-white"></i>
         </div>
         <div>
           <div class="flex items-center gap-2">
@@ -123,22 +106,22 @@
               1080p FHD (16:9)
             </span>
           </div>
-          <p class="text-xs text-slate-400 hidden sm:block">Full HD Broadcast Engine • Local & Cross-Tab WebRTC Mesh</p>
+          <p class="text-xs text-slate-400 hidden sm:block">P2P Full HD WebRTC Mesh • Instant Local & Cross-Tab Transmission</p>
         </div>
       </div>
 
-      <!-- Network Mesh State & Actions -->
-      <div class="flex items-center gap-3">
-        <div id="peerStatusPill" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono bg-studio-850 border border-studio-800 text-slate-300">
-          <span id="peerDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="peerStatusLabel">Mesh Engine Ready</span>
+      <!-- Network Mesh Status & Quick Action Buttons -->
+      <div class="flex items-center gap-2.5">
+        <div id="meshStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono bg-studio-850 border border-studio-800 text-slate-300">
+          <span id="meshDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="meshStatusText">P2P Ready</span>
         </div>
 
-        <button onclick="copyStationInviteLink()" title="Copy Permanent Link" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition">
+        <button onclick="copyPermanentLink()" title="Copy Permanent Station Link" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition">
           <i data-lucide="share-2" class="w-4 h-4 text-cyan-400"></i>
         </button>
 
-        <button onclick="toggleQuickHelp(true)" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition" title="Instructions">
+        <button onclick="toggleHelpModal(true)" title="Broadcast Help & Tips" class="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-800 text-slate-300 hover:text-white transition">
           <i data-lucide="help-circle" class="w-4 h-4"></i>
         </button>
       </div>
@@ -146,372 +129,307 @@
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col gap-5">
 
-    <!-- Station Configuration & Permanent Room Key Bar -->
-    <section class="bg-studio-900 border border-studio-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+    <!-- Station Identifier & View Mode Switcher -->
+    <section class="bg-studio-900 border border-studio-800 rounded-2xl p-4 shadow-xl">
       <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
         
-        <!-- Role Switching Segmented Control -->
-        <div class="inline-flex p-1 bg-studio-950 border border-studio-800 rounded-xl self-start sm:self-auto">
-          <button id="tabBroadcasterBtn" onclick="switchRole('broadcaster')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md">
+        <!-- Viewport Selector: Broadcaster, Viewer, or Split Mode -->
+        <div class="inline-flex p-1 bg-studio-950 border border-studio-800 rounded-xl self-start sm:self-auto flex-wrap">
+          <button id="viewTabBroadcaster" onclick="setActiveViewMode('broadcaster')" class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow">
             <i data-lucide="camera" class="w-4 h-4 text-rose-400"></i>
             <span>Broadcaster Studio</span>
           </button>
-          <button id="tabListenerBtn" onclick="switchRole('listener')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-slate-200">
+          <button id="viewTabAudience" onclick="setActiveViewMode('audience')" class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white">
             <i data-lucide="tv" class="w-4 h-4 text-cyan-400"></i>
             <span>Audience Screen</span>
           </button>
-        </div>
-
-        <!-- Permanent Station Name Bar -->
-        <div class="flex-1 max-w-2xl bg-studio-950/80 border border-studio-800 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div class="flex items-center gap-2 min-w-[130px]">
-            <i data-lucide="lock" class="w-4 h-4 text-cyan-400"></i>
-            <span class="text-xs font-mono font-medium text-slate-400">Permanent ID:</span>
-          </div>
-
-          <div class="relative flex-1">
-            <input id="staticRoomInput" type="text" spellcheck="false" placeholder="channel-live-fhd" 
-                   class="w-full bg-studio-900 border border-studio-800 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-cyan-300 font-mono font-semibold focus:outline-none focus:border-cyan-500 transition">
-          </div>
-
-          <div class="flex items-center gap-2">
-            <button onclick="applyAndPersistCustomRoomId()" class="px-3 py-1.5 bg-studio-800 hover:bg-studio-700 text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition whitespace-nowrap">
-              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span>Save & Connect</span>
-            </button>
-            <button onclick="copyStationInviteLink()" class="px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 font-medium rounded-lg text-xs flex items-center gap-1.5 transition whitespace-nowrap">
-              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-              <span>Copy Link</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Virtual SMPTE 1080p Generator Toggle -->
-        <div class="flex items-center gap-2">
-          <button onclick="toggleVirtualTestCard()" id="virtualCardBtn" class="px-3.5 py-2 bg-violet-950/60 hover:bg-violet-900/80 border border-violet-700/70 text-violet-300 rounded-xl text-xs font-mono flex items-center justify-center gap-1.5 transition">
-            <i data-lucide="sliders" class="w-4 h-4 text-violet-400"></i>
-            <span id="virtualCardLabel">SMPTE 1080p Test</span>
+          <button id="viewTabSplit" onclick="setActiveViewMode('split')" class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white">
+            <i data-lucide="columns-2" class="w-4 h-4 text-violet-400"></i>
+            <span class="hidden sm:inline">Split View (Host + Viewer)</span>
+            <span class="sm:hidden">Split</span>
           </button>
+        </div>
+
+        <!-- Station ID Persistence Field -->
+        <div class="flex-1 max-w-xl bg-studio-950/90 border border-studio-800 rounded-xl p-2 sm:p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div class="flex items-center gap-2 min-w-[120px] text-xs font-mono text-slate-400 pl-1">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span>Station ID:</span>
+          </div>
+
+          <input id="roomNameInput" type="text" value="wavecast-fhd" spellcheck="false"
+                 class="flex-1 bg-studio-900 border border-studio-800 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-mono text-cyan-300 font-bold focus:outline-none focus:border-cyan-500 transition">
+
+          <div class="flex items-center gap-1.5">
+            <button onclick="saveAndApplyStationId()" class="px-3 py-1.5 bg-studio-800 hover:bg-studio-700 text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Save</span>
+            </button>
+            <button onclick="copyPermanentLink()" class="px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 font-medium rounded-lg text-xs flex items-center gap-1.5 transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Link</span>
+            </button>
+          </div>
         </div>
 
       </div>
     </section>
 
-    <!-- Broadcaster Studio Section -->
-    <div id="broadcasterContainer" class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <div id="broadcasterSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
       
-      <!-- Video Viewport & Primary Controls (8 Cols) -->
-      <div class="lg:col-span-8 flex flex-col gap-6">
+      <!-- Video Monitor & Primary Broadcaster Controls (8 Columns) -->
+      <div class="lg:col-span-8 flex flex-col gap-5">
         
         <!-- Live Video Monitor Container -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative">
+        <div class="bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
           
-          <!-- Monitor Header Bar -->
+          <!-- Monitor Status Top Bar -->
           <div class="px-4 py-2.5 bg-studio-950/90 border-b border-studio-800 flex items-center justify-between text-xs">
             <div class="flex items-center gap-3">
-              <span id="hostOnAirBadge" class="hidden items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                <span class="w-2 h-2 rounded-full bg-rose-500 pulse-live"></span>
-                LIVE ON AIR
+              <span id="hostStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">
+                <span id="hostStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span id="hostStatusText">STANDBY PREVIEW</span>
               </span>
-              <span id="hostStandbyBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">
-                <span class="w-2 h-2 rounded-full bg-slate-500"></span>
-                OFFLINE PREVIEW
-              </span>
-              <span id="activeSourceBadge" class="text-slate-400 font-mono text-[11px]">Source: Standby</span>
+              <span id="currentSourceBadge" class="text-slate-400 font-mono text-[11px]">Source: Standby</span>
             </div>
 
-            <!-- Resolution & Stream Metrics -->
             <div class="flex items-center gap-3 font-mono text-[11px] text-slate-400">
               <span class="text-cyan-400 font-bold">1920×1080 (16:9 FHD)</span>
               <span>•</span>
-              <span id="monitorFps">30 FPS</span>
+              <span id="hostFpsText">30 FPS</span>
             </div>
           </div>
 
-          <!-- Master 16:9 FHD Stage -->
-          <div class="fhd-stage" id="masterStageWrapper">
-            <video id="broadcasterHiddenVideo" autoplay playsinline muted class="hidden"></video>
-            <!-- Fixed 1920x1080 Internal Resolution Canvas -->
-            <canvas id="broadcasterMasterCanvas" width="1920" height="1080" class="fhd-element"></canvas>
+          <!-- Master 16:9 1080p Stage -->
+          <div class="viewport-16-9" id="hostStage">
+            <!-- Hidden Raw Video Sink for Camera / Screen -->
+            <video id="cameraRawVideo" autoplay playsinline muted class="hidden"></video>
+            
+            <!-- Master 1920x1080 Broadcast Canvas (Source of WebRTC 1080p Video Track) -->
+            <canvas id="masterCompositorCanvas" width="1920" height="1080" class="video-fit-16-9"></canvas>
 
-            <!-- Video Camera Disabled Graphic Placeholder -->
-            <div id="videoDisabledPlaceholder" class="hidden absolute inset-0 bg-studio-950 flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
-              <div class="w-20 h-20 rounded-full bg-studio-900 border border-studio-700 flex items-center justify-center text-slate-500">
-                <i data-lucide="video-off" class="w-10 h-10"></i>
-              </div>
-              <p class="text-sm font-semibold text-slate-300">Camera Feed Paused</p>
-              <p class="text-xs text-slate-500 max-w-sm">Microphone audio remains active while camera is paused.</p>
-            </div>
-
-            <!-- Lower Third On-Screen Broadcast Ticker Graphic -->
-            <div id="lowerThirdGraphic" class="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md bg-studio-950/90 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex items-center gap-3 transition-opacity duration-300 z-20">
+            <!-- Lower Third On-Screen Overlay -->
+            <div id="lowerThirdGraphic" class="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md bg-studio-950/90 backdrop-blur-md border border-cyan-500/40 rounded-xl p-3 shadow-2xl flex items-center gap-3 transition-opacity duration-300 pointer-events-none">
               <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                 <i data-lucide="radio" class="w-5 h-5"></i>
               </div>
               <div class="flex-1 min-w-0">
-                <p id="lowerThirdTitle" class="text-xs font-bold text-white uppercase tracking-wider truncate">WaveCast FHD Studio</p>
-                <p id="lowerThirdSub" class="text-[11px] font-mono text-cyan-400 truncate">1080p 16:9 Full HD Stream</p>
+                <p id="lowerThirdDisplayTitle" class="text-xs font-bold text-white uppercase tracking-wider truncate">WaveCast FHD Studio</p>
+                <p id="lowerThirdDisplaySub" class="text-[11px] font-mono text-cyan-400 truncate">1080p 16:9 Full HD Stream</p>
               </div>
             </div>
 
+            <!-- Standby Overlay -->
+            <div id="hostStandbyOverlay" class="absolute inset-0 bg-studio-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-center p-6 space-y-3 pointer-events-none">
+              <div class="w-16 h-16 rounded-2xl bg-studio-900 border border-studio-800 flex items-center justify-center text-cyan-400 shadow-xl">
+                <i data-lucide="video" class="w-8 h-8"></i>
+              </div>
+              <p class="text-sm font-bold text-white">Broadcast Camera is Ready</p>
+              <p class="text-xs text-slate-400 max-w-sm">Click "Go Live" or choose a video source below to start streaming in 1080p Full HD.</p>
+            </div>
           </div>
 
-          <!-- Primary Studio Master Deck Control Bar -->
           <div class="p-4 bg-studio-900/95 border-t border-studio-800 flex flex-wrap items-center justify-between gap-3">
             
             <div class="flex items-center gap-2 flex-wrap">
-              <!-- Broadcast Toggle -->
-              <button id="toggleBroadcastBtn" onclick="toggleBroadcast()" class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition flex items-center gap-2">
+              <!-- Go Live Master Button -->
+              <button id="broadcastActionBtn" onclick="toggleBroadcastTransmission()" class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition flex items-center gap-2">
                 <i data-lucide="radio" class="w-4 h-4"></i>
-                <span id="broadcastBtnLabel">Go Live</span>
+                <span id="broadcastActionLabel">Go Live (1080p)</span>
               </button>
 
-              <!-- Screen Share Toggle -->
-              <button id="screenShareBtn" onclick="toggleScreenShare()" class="px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-2">
-                <i id="screenShareIcon" data-lucide="monitor" class="w-4 h-4 text-cyan-400"></i>
-                <span id="screenShareLabel">Share Screen</span>
+              <!-- Source 1: Camera -->
+              <button onclick="selectVideoSource('camera')" id="srcCameraBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-1.5">
+                <i data-lucide="camera" class="w-4 h-4 text-emerald-400"></i>
+                <span>Webcam</span>
               </button>
 
-              <!-- Camera Toggle -->
-              <button id="toggleCameraBtn" onclick="toggleVideoTrack()" class="p-2.5 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Toggle Camera">
-                <i id="cameraIcon" data-lucide="video" class="w-4 h-4 text-emerald-400"></i>
+              <!-- Source 2: Screen Share -->
+              <button onclick="selectVideoSource('screen')" id="srcScreenBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-1.5">
+                <i data-lucide="monitor" class="w-4 h-4 text-cyan-400"></i>
+                <span>Screen Share</span>
               </button>
 
-              <!-- Mic Toggle -->
-              <button id="toggleMicBtn" onclick="toggleAudioTrack()" class="p-2.5 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Toggle Mic">
-                <i id="micIcon" data-lucide="mic" class="w-4 h-4 text-emerald-400"></i>
-              </button>
-
-              <!-- Flip Mirror -->
-              <button onclick="toggleVideoMirror()" class="p-2.5 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Flip Mirror">
-                <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
+              <!-- Source 3: Studio Test Pattern -->
+              <button onclick="selectVideoSource('smpte')" id="srcSmpteBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition flex items-center gap-1.5">
+                <i data-lucide="sliders" class="w-4 h-4 text-violet-400"></i>
+                <span>1080p SMPTE</span>
               </button>
             </div>
 
-            <!-- Stream Recording Action -->
+            <!-- Quick Toggles -->
             <div class="flex items-center gap-2">
-              <button id="recordStreamBtn" onclick="toggleStreamRecording()" disabled class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-studio-800 hover:bg-studio-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed border border-studio-700 transition flex items-center gap-1.5">
-                <i id="recDotIcon" data-lucide="disc" class="w-4 h-4 text-rose-500"></i>
-                <span id="recordBtnLabel">Record 1080p WebM</span>
+              <button onclick="toggleCameraMute()" id="muteCamBtn" class="p-2.5 rounded-xl bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Pause Video">
+                <i id="muteCamIcon" data-lucide="video" class="w-4 h-4 text-emerald-400"></i>
+              </button>
+              <button onclick="toggleAudioMute()" id="muteMicBtn" class="p-2.5 rounded-xl bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Mute Microphone">
+                <i id="muteMicIcon" data-lucide="mic" class="w-4 h-4 text-emerald-400"></i>
+              </button>
+              <button onclick="toggleFlipHorizontal()" class="p-2.5 rounded-xl bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-700 transition" title="Flip Mirror">
+                <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
               </button>
             </div>
 
           </div>
         </div>
 
-        <!-- Hardware Routing & Overlay Customizer -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-5 shadow-xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 sm:p-5 shadow-xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           
-          <!-- Camera Device Select -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-400 flex items-center justify-between">
-              <span>Video Input Device</span>
-              <button onclick="populateMediaDevices()" class="text-[10px] text-cyan-400 hover:underline">Refresh</button>
-            </label>
-            <select id="videoSourceSelect" onchange="changeVideoInputDevice(this.value)" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-              <option value="">Default Camera</option>
-            </select>
-          </div>
-
-          <!-- Mic Input Select -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-400">Audio Microphone</label>
-            <select id="audioSourceSelect" onchange="changeAudioInputDevice(this.value)" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-              <option value="">Default Microphone</option>
-            </select>
-          </div>
-
-          <!-- Preamp Gain -->
+          <!-- Mic Preamp Slider -->
           <div class="flex flex-col gap-1.5">
             <div class="flex justify-between items-center text-xs">
               <span class="text-slate-400 font-semibold">Microphone Gain</span>
-              <span id="gainValBadge" class="font-mono text-cyan-400 font-bold">1.0x</span>
+              <span id="gainValueText" class="font-mono text-cyan-400 font-bold">1.0x</span>
             </div>
-            <input id="micGainSlider" type="range" min="0" max="3" step="0.05" value="1" oninput="setHostPreampGain(this.value)" class="accent-cyan-400 w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer mt-2.5">
+            <input id="micGainSlider" type="range" min="0" max="3" step="0.05" value="1" oninput="setHostAudioGain(this.value)" class="accent-cyan-400 w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer mt-2">
           </div>
 
-          <!-- Lower Third Customizer Title -->
+          <!-- Lower Third Title -->
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-400">Lower-Third Title</label>
-            <input id="customLowerTitle" type="text" value="WaveCast FHD Studio" oninput="updateLowerThirdText()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            <input id="lowerThirdTitleInput" type="text" value="WaveCast FHD Studio" oninput="updateLowerThirdContent()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
           </div>
 
           <!-- Lower Third Subtitle -->
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-400">Ticker Subtitle</label>
-            <input id="customLowerSub" type="text" value="1080p 16:9 Full HD Stream" oninput="updateLowerThirdText()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-          </div>
-
-          <!-- Overlay Toggle & Noise Suppression -->
-          <div class="flex flex-col justify-center gap-2 pt-2 text-xs text-slate-300">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="showLowerThirdCheck" checked onchange="toggleLowerThirdVisibility(this.checked)" class="rounded bg-studio-950 border-studio-800 text-cyan-500 focus:ring-0">
-              <span>Show Lower-Third Graphic</span>
-            </label>
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="noiseFilterCheck" checked onchange="renegotiateMediaConstraints()" class="rounded bg-studio-950 border-studio-800 text-cyan-500 focus:ring-0">
-              <span>Hardware Noise Suppression</span>
-            </label>
+            <input id="lowerThirdSubInput" type="text" value="1080p 16:9 Full HD Stream" oninput="updateLowerThirdContent()" class="bg-studio-950 border border-studio-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
           </div>
 
         </div>
 
-        <!-- Audience Connection Roster -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-5 shadow-xl">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
+        <!-- Connected Audience Roster -->
+        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 shadow-xl">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
               <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
-              <h3 class="text-sm font-semibold text-slate-200">Connected Audience Mesh</h3>
-              <span id="hostAudienceBadge" class="ml-2 px-2.5 py-0.5 text-xs font-mono font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">0 Viewers</span>
+              <span>Active Viewers Mesh</span>
+              <span id="hostViewerCountBadge" class="ml-2 px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">0 Viewers</span>
             </div>
-            <button onclick="pingAllViewers()" class="text-xs text-slate-400 hover:text-cyan-400 flex items-center gap-1.5 transition">
-              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-              <span>Refresh Telemetry</span>
-            </button>
+            <span class="text-[11px] font-mono text-slate-400">WebRTC P2P</span>
           </div>
-
-          <div id="audienceRosterContainer" class="divide-y divide-studio-800 max-h-40 overflow-y-auto pr-1 text-xs">
-            <div id="noViewersPlaceholder" class="py-6 text-center text-slate-500">
-              No audience members currently connected. Share your station link or switch to Audience Screen to tune in.
+          <div id="hostViewerList" class="text-xs font-mono divide-y divide-studio-800 max-h-32 overflow-y-auto">
+            <div class="py-3 text-center text-slate-500 text-xs">
+              No viewers tuned in yet. Click "Split View" above or open in another window to test live audience reception!
             </div>
           </div>
         </div>
 
       </div>
 
-      <!-- Right Column: Interactive Chat & Real-Time Engagement (4 Cols) -->
-      <div class="lg:col-span-4 flex flex-col gap-6">
+      <div class="lg:col-span-4 flex flex-col gap-5">
         
         <!-- Live Chat Card -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl flex flex-col h-[580px] shadow-xl overflow-hidden">
-          <div class="p-4 border-b border-studio-800 flex items-center justify-between bg-studio-950/70">
+        <div class="bg-studio-900 border border-studio-800 rounded-2xl flex flex-col h-[560px] shadow-xl overflow-hidden">
+          <div class="p-3.5 border-b border-studio-800 flex items-center justify-between bg-studio-950/70">
             <div class="flex items-center gap-2">
               <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i>
-              <span class="text-sm font-semibold text-white">Broadcast Stage Chat</span>
+              <span class="text-xs sm:text-sm font-semibold text-white">Broadcast Stage Chat</span>
             </div>
-            <span class="text-[11px] font-mono text-cyan-400">Real-Time P2P</span>
+            <span class="text-[10px] font-mono text-cyan-400">Real-Time P2P</span>
           </div>
 
-          <!-- Quick Reactions Toolbar -->
-          <div class="px-4 py-2.5 bg-studio-950/60 border-b border-studio-800 flex items-center justify-around">
-            <button onclick="sendQuickReaction('🔥')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Fire">🔥</button>
-            <button onclick="sendQuickReaction('👏')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Applause">👏</button>
-            <button onclick="sendQuickReaction('❤️')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Heart">❤️</button>
-            <button onclick="sendQuickReaction('🚀')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Rocket">🚀</button>
-            <button onclick="sendQuickReaction('💡')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Idea">💡</button>
-            <button onclick="sendQuickReaction('🎉')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Party">🎉</button>
+          <!-- Host Quick Reactions Toolbar -->
+          <div class="px-3 py-2 bg-studio-950/50 border-b border-studio-800 flex items-center justify-around">
+            <button onclick="dispatchReaction('🔥')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Fire">🔥</button>
+            <button onclick="dispatchReaction('👏')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Applause">👏</button>
+            <button onclick="dispatchReaction('❤️')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Heart">❤️</button>
+            <button onclick="dispatchReaction('🚀')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Rocket">🚀</button>
+            <button onclick="dispatchReaction('💡')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Idea">💡</button>
+            <button onclick="dispatchReaction('🎉')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Party">🎉</button>
           </div>
 
-          <!-- Chat Feed -->
-          <div id="hostChatContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs font-sans">
-            <div class="p-2.5 rounded-xl bg-studio-950/70 border border-studio-800 text-slate-400 text-center">
-              Station initialized. Messages and emoji reactions from viewers will appear here in real time.
+          <!-- Message History -->
+          <div id="hostChatBox" class="flex-1 p-3.5 overflow-y-auto space-y-2.5 text-xs font-sans">
+            <div class="p-2.5 rounded-xl bg-studio-950/70 border border-studio-800 text-slate-400 text-center text-[11px]">
+              Studio initialized. Start broadcasting and send chat messages to your viewers in real-time.
             </div>
           </div>
 
           <!-- Chat Input -->
-          <form onsubmit="handleChatSubmit(event, 'broadcaster')" class="p-3 border-t border-studio-800 bg-studio-950/80 flex gap-2">
-            <input id="broadcasterChatInput" type="text" placeholder="Send a message as host..." class="flex-1 bg-studio-900 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
-            <button type="submit" class="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center">
+          <form onsubmit="handleChatSubmit(event, 'host')" class="p-3 border-t border-studio-800 bg-studio-950/80 flex gap-2">
+            <input id="hostChatInput" type="text" placeholder="Type a message as host..." class="flex-1 bg-studio-900 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+            <button type="submit" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center">
               <i data-lucide="send" class="w-3.5 h-3.5"></i>
             </button>
           </form>
-        </div>
-
-        <!-- Recording Download Drawer -->
-        <div id="recordingResultCard" class="hidden bg-emerald-950/40 border border-emerald-700/60 rounded-2xl p-4 flex flex-col gap-2 shadow-xl">
-          <div class="flex items-center justify-between text-xs font-bold text-emerald-300">
-            <span class="flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4"></i> 1080p Video Recorded</span>
-            <span id="recordingTimerBadge" class="font-mono text-emerald-400">00:00</span>
-          </div>
-          <video id="recordingPlaybackEl" controls class="w-full rounded-lg bg-black aspect-video mt-1"></video>
-          <a id="downloadRecordingAnchor" class="mt-1 block text-center py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition">
-            Download 1080p Video (.webm)
-          </a>
         </div>
 
       </div>
 
     </div>
 
-    <!-- Audience Receiver Mode Section -->
-    <div id="listenerContainer" class="studio-view-hidden grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <div id="audienceSection" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
       
-      <!-- Video Player Deck (8 Cols) -->
-      <div class="lg:col-span-8 flex flex-col gap-6">
+      <!-- Video Player Deck (8 Columns) -->
+      <div class="lg:col-span-8 flex flex-col gap-5">
         
-        <!-- Station Tuner Bar -->
-        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <!-- Audience Tuner Header -->
+        <div class="bg-studio-900 border border-studio-800 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
               <i data-lucide="tv" class="w-5 h-5 text-cyan-400"></i>
-              Audience 1080p Live Feed
+              Audience 1080p Live Player
             </h2>
-            <p class="text-xs text-slate-400">Strict 16:9 Full HD WebRTC Player</p>
+            <p class="text-xs text-slate-400">Strict 16:9 Full HD WebRTC Receiver</p>
           </div>
 
           <div class="flex items-center gap-2">
-            <input id="listenerStationInput" type="text" placeholder="Enter Station ID" class="w-44 bg-studio-950 border border-studio-800 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500">
-            <button id="listenerTuneBtn" onclick="connectListenerToStation()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5">
+            <button id="tuneInBtn" onclick="joinLiveBroadcast()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-cyan-600/30">
               <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
-              <span id="tuneBtnLabel">Tune In</span>
+              <span id="tuneInBtnText">Tune In Now</span>
             </button>
-            <button id="listenerLeaveBtn" onclick="disconnectListenerFromStation()" class="hidden px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition items-center gap-1.5">
+            <button id="leaveStationBtn" onclick="leaveLiveBroadcast()" class="hidden px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition items-center gap-1.5">
               <i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i>
               <span>Leave</span>
             </button>
           </div>
         </div>
 
-        <!-- Audience Video Player Container -->
+        <!-- Audience Video Container (Locked 16:9 1080p FHD Aspect Ratio) -->
         <div class="bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative group">
           
-          <!-- Strict 16:9 FHD Stage for Remote Feed -->
-          <div class="fhd-stage">
-            
-            <!-- Real Remote Video Element (Muted default allows instant autoplay) -->
-            <video id="remoteVideoSink" autoplay playsinline muted class="fhd-element"></video>
+          <div class="viewport-16-9" id="audienceStage">
+            <!-- Inbound Remote Full HD Video (Muted by default to comply with browser autoplay) -->
+            <video id="remoteAudienceVideo" autoplay playsinline muted class="video-fit-16-9"></video>
 
-            <!-- Floating Unmute Audio Pill (Non-blocking) -->
-            <button id="unmuteAudioBtn" onclick="unmuteRemoteVideo()" class="hidden absolute top-4 left-4 z-20 px-3.5 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-xl flex items-center gap-1.5 animate-bounce transition">
+            <!-- Interactive Glassmorphic Tap to Unmute Overlay -->
+            <button id="unmutePillBtn" onclick="unmuteAudienceAudio()" class="hidden absolute top-4 left-4 z-30 px-4 py-2 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce transition">
               <i data-lucide="volume-x" class="w-4 h-4"></i>
-              <span>Click to Unmute Audio</span>
+              <span>Tap to Unmute Audio</span>
             </button>
 
-            <!-- Standby Placeholder when disconnected -->
-            <div id="listenerStandbyScreen" class="absolute inset-0 bg-studio-950 flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
-              <div class="w-16 h-16 rounded-2xl bg-studio-900 border border-studio-800 flex items-center justify-center text-slate-500">
+            <!-- Disconnected / Standby Placeholder -->
+            <div id="audienceStandbyScreen" class="absolute inset-0 bg-studio-950 flex flex-col items-center justify-center text-center p-6 space-y-3 z-20">
+              <div class="w-16 h-16 rounded-2xl bg-studio-900 border border-studio-800 flex items-center justify-center text-slate-500 shadow-lg">
                 <i data-lucide="radio" class="w-8 h-8"></i>
               </div>
-              <p class="text-sm font-semibold text-slate-300">Station In Standby</p>
-              <p class="text-xs text-slate-500 max-w-sm">Click "Tune In" above or verify that the broadcaster is live on this room ID.</p>
+              <p id="audienceStandbyTitle" class="text-sm font-semibold text-slate-300">Station Waiting</p>
+              <p id="audienceStandbySub" class="text-xs text-slate-500 max-w-sm">Click "Tune In Now" above to connect to the live 1080p broadcast stream.</p>
             </div>
-
           </div>
 
           <!-- Video Deck Interactive Controls (Volume, Fullscreen, PiP) -->
           <div class="p-3.5 bg-studio-950/90 border-t border-studio-800 flex flex-wrap items-center justify-between gap-3 text-xs">
             
             <div class="flex items-center gap-3">
-              <button id="listenerMuteBtn" onclick="toggleViewerMute()" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
-                <i id="viewerVolIcon" data-lucide="volume-2" class="w-4 h-4 text-cyan-400"></i>
+              <button id="audienceMuteToggleBtn" onclick="toggleAudienceMute()" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
+                <i id="audienceVolIcon" data-lucide="volume-2" class="w-4 h-4 text-cyan-400"></i>
               </button>
-              <input id="listenerVolumeSlider" type="range" min="0" max="1" step="0.05" value="0.9" oninput="adjustViewerVolume(this.value)" class="accent-cyan-400 w-24 sm:w-32 h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer">
+              <input id="audienceVolumeSlider" type="range" min="0" max="1" step="0.05" value="0.9" oninput="setAudienceVolume(this.value)" class="accent-cyan-400 w-24 sm:w-32 h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer">
               
-              <span id="viewerStatusPill" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40">
+              <span id="audienceLiveTag" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-rose-500/20 text-rose-400 border border-rose-500/40">
                 <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-live"></span> LIVE 1080p FHD
               </span>
             </div>
 
             <div class="flex items-center gap-2">
-              <!-- Picture-in-Picture -->
-              <button onclick="requestPictureInPicture()" title="Picture-in-Picture" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
+              <button onclick="requestPiP()" title="Picture-in-Picture" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
                 <i data-lucide="picture-in-picture-2" class="w-4 h-4"></i>
               </button>
-              <!-- Fullscreen -->
-              <button onclick="toggleViewerFullscreen()" title="Fullscreen" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
+              <button onclick="requestViewerFullscreen()" title="Fullscreen" class="p-2 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 transition">
                 <i data-lucide="maximize" class="w-4 h-4"></i>
               </button>
             </div>
@@ -524,57 +442,56 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
           <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
             <span class="text-slate-500 text-[10px] block font-sans">ICE STATUS</span>
-            <span id="statIce" class="text-slate-300 font-bold">Standby</span>
+            <span id="telemetryIce" class="text-slate-300 font-bold">Standby</span>
           </div>
           <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
             <span class="text-slate-500 text-[10px] block font-sans">STREAM RTT</span>
-            <span id="statLatency" class="text-cyan-400 font-bold">~ -- ms</span>
+            <span id="telemetryLatency" class="text-cyan-400 font-bold">~ -- ms</span>
           </div>
           <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">RESOLUTION & ASPECT</span>
+            <span class="text-slate-500 text-[10px] block font-sans">ASPECT RATIO</span>
             <span class="text-slate-200 font-bold">1920×1080 (16:9)</span>
           </div>
           <div class="p-3 bg-studio-900 rounded-xl border border-studio-800 shadow">
-            <span class="text-slate-500 text-[10px] block font-sans">AUDIO ENCODING</span>
+            <span class="text-slate-500 text-[10px] block font-sans">AUDIO CODEC</span>
             <span class="text-emerald-400 font-bold">Opus 48kHz Stereo</span>
           </div>
         </div>
 
       </div>
 
-      <!-- Audience Chat & Interaction (4 Cols) -->
-      <div class="lg:col-span-4 flex flex-col gap-6">
+      <div class="lg:col-span-4 flex flex-col gap-5">
         <div class="bg-studio-900 border border-studio-800 rounded-2xl flex flex-col h-[560px] shadow-xl overflow-hidden">
-          <div class="p-4 border-b border-studio-800 flex items-center justify-between bg-studio-950/70">
+          <div class="p-3.5 border-b border-studio-800 flex items-center justify-between bg-studio-950/70">
             <div class="flex items-center gap-2">
               <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i>
-              <span class="text-sm font-semibold text-white">Live Audience Chat</span>
+              <span class="text-xs sm:text-sm font-semibold text-white">Live Audience Chat</span>
             </div>
-            <span class="text-[11px] font-mono text-cyan-400">P2P Stream</span>
+            <span class="text-[10px] font-mono text-cyan-400">P2P Stream</span>
           </div>
 
-          <!-- Listener Quick Reactions -->
-          <div class="px-4 py-2.5 bg-studio-950/60 border-b border-studio-800 flex items-center justify-around">
-            <button onclick="sendQuickReaction('🔥')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Fire">🔥</button>
-            <button onclick="sendQuickReaction('👏')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Applause">👏</button>
-            <button onclick="sendQuickReaction('❤️')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Heart">❤️</button>
-            <button onclick="sendQuickReaction('🚀')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Rocket">🚀</button>
-            <button onclick="sendQuickReaction('💡')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Idea">💡</button>
-            <button onclick="sendQuickReaction('🎉')" class="p-2 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Party">🎉</button>
+          <!-- Audience Quick Reactions -->
+          <div class="px-3 py-2 bg-studio-950/50 border-b border-studio-800 flex items-center justify-around">
+            <button onclick="dispatchReaction('🔥')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Fire">🔥</button>
+            <button onclick="dispatchReaction('👏')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Applause">👏</button>
+            <button onclick="dispatchReaction('❤️')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Heart">❤️</button>
+            <button onclick="dispatchReaction('🚀')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Rocket">🚀</button>
+            <button onclick="dispatchReaction('💡')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Idea">💡</button>
+            <button onclick="dispatchReaction('🎉')" class="p-1.5 hover:bg-studio-800 rounded-lg text-lg transition transform active:scale-90" title="Party">🎉</button>
           </div>
 
           <!-- Viewer Chat Feed -->
-          <div id="listenerChatContainer" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs font-sans">
-            <div class="p-2.5 rounded-xl bg-studio-950/70 border border-studio-800 text-slate-400 text-center">
-              Connect to the live station to chat with the host and other viewers.
+          <div id="audienceChatBox" class="flex-1 p-3.5 overflow-y-auto space-y-2.5 text-xs font-sans">
+            <div class="p-2.5 rounded-xl bg-studio-950/70 border border-studio-800 text-slate-400 text-center text-[11px]">
+              Tune in to the station to chat with the host and fellow viewers.
             </div>
           </div>
 
-          <!-- Chat Form -->
-          <form onsubmit="handleChatSubmit(event, 'listener')" class="p-3 border-t border-studio-800 bg-studio-950/80 flex gap-2">
-            <input id="listenerChatInput" type="text" placeholder="Type a message..." disabled 
+          <!-- Chat Input Form -->
+          <form onsubmit="handleChatSubmit(event, 'audience')" class="p-3 border-t border-studio-800 bg-studio-950/80 flex gap-2">
+            <input id="audienceChatInput" type="text" placeholder="Type a message as viewer..." disabled
                    class="flex-1 bg-studio-900 border border-studio-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50">
-            <button id="listenerSendBtn" type="submit" disabled class="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50">
+            <button id="audienceSendBtn" type="submit" disabled class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50">
               <i data-lucide="send" class="w-3.5 h-3.5"></i>
             </button>
           </form>
@@ -585,698 +502,879 @@
 
   </main>
 
-  <!-- Help & Diagnostic Modal -->
   <div id="helpModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="bg-studio-900 border border-studio-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-studio-800 pb-3">
         <h3 class="text-base font-bold text-white flex items-center gap-2">
           <i data-lucide="info" class="w-5 h-5 text-cyan-400"></i>
-          1080p FHD Broadcasting Guide
+          1080p FHD Live Broadcasting Guide
         </h3>
-        <button onclick="toggleQuickHelp(false)" class="p-1 text-slate-400 hover:text-white rounded-lg">
+        <button onclick="toggleHelpModal(false)" class="p-1 text-slate-400 hover:text-white rounded-lg">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
       <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
-        <p><strong class="text-cyan-400">1. Strict 1080p 16:9 Ratio:</strong> All internal compositing buffers are locked at 1920×1080 resolution. Display stages enforce a 16:9 ratio with letterbox fitting to prevent stretching or skewing.</p>
-        <p><strong class="text-emerald-400">2. Rock-Solid Connection:</strong> Features message deduplication, candidate queuing, and dual-layer signaling so connections establish reliably across tabs and in single-tab loopback.</p>
-        <p><strong class="text-rose-400">3. Browser Autoplay Compliance:</strong> Inbound video plays muted first, then smoothly unblocks audio when you interact with the stage or tap the play overlay.</p>
-        <p><strong class="text-violet-400">4. Instant Testing:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-violet-300">SMPTE 1080p Test</code> to broadcast a 1080p test pattern and synth audio on a single tab without needing a camera.</p>
+        <p><strong class="text-cyan-400">1. Instant Split Mode Testing:</strong> Click <code class="bg-studio-800 px-1 py-0.5 rounded text-cyan-300">Split View</code> in the top navigation bar. You will see both the Host Studio and the Audience Player side-by-side. Click "Go Live" on the left, then "Tune In Now" on the right. It connects immediately with zero setup!</p>
+        <p><strong class="text-emerald-400">2. Strict 1080p 16:9 Aspect Ratio:</strong> All master broadcast tracks are rendered through a locked 1920×1080 hardware compositor. Letterbox and pillarbox algorithms ensure your video is never stretched or distorted.</p>
+        <p><strong class="text-rose-400">3. Multiple Sources:</strong> Switch anytime between your Web Camera, Screen Share, or the built-in 1080p SMPTE Color Bar generator.</p>
+        <p><strong class="text-violet-400">4. Browser Autoplay Handling:</strong> Incoming audio begins muted to adhere to strict browser security policies. Tap the glowing cyan <code class="bg-studio-800 px-1 py-0.5 rounded text-violet-300">Tap to Unmute Audio</code> pill to start listening.</p>
       </div>
 
       <div class="pt-2 flex justify-end">
-        <button onclick="toggleQuickHelp(false)" class="px-4 py-2 bg-studio-800 hover:bg-studio-700 text-white rounded-xl text-xs font-semibold">Got It</button>
+        <button onclick="toggleHelpModal(false)" class="px-4 py-2 bg-studio-800 hover:bg-studio-700 text-white rounded-xl text-xs font-semibold">Got It</button>
       </div>
     </div>
   </div>
 
-  <!-- Hidden Virtual Canvas for 1080p SMPTE Pattern Generation -->
-  <canvas id="virtualSmpteCanvas" width="1920" height="1080" class="hidden"></canvas>
-
   <script>
-    // Global guard against sandbox SecurityErrors
-    window.addEventListener('unhandledrejection', (event) => {
-      if (event.reason && (event.reason.name === 'SecurityError' || String(event.reason).includes('WebSocket'))) {
-        console.warn('Sandbox policy handled:', event.reason.message);
-        event.preventDefault();
-      }
-    });
-
-    const STORAGE_KEY_ROOM_ID = 'wavecast_video_room_id';
-    const DEFAULT_STATIC_ROOM_ID = 'wavecast-live-fhd';
+    // Global Constants
+    const STORAGE_STATION_KEY = 'wavecast_fhd_room_id';
+    const DEFAULT_STATION_ID = 'wavecast-fhd';
 
     // Application Master State
-    const state = {
-      activeTab: 'broadcaster', // 'broadcaster' | 'listener'
-      staticRoomId: '',
+    const appState = {
+      stationId: DEFAULT_STATION_ID,
+      activeView: 'broadcaster', // 'broadcaster' | 'audience' | 'split'
       
-      // Distinct IDs so broadcaster & listener can co-exist in same window or across tabs
-      broadcasterId: 'host-' + Math.random().toString(36).substring(2, 9),
-      listenerId: 'viewer-' + Math.random().toString(36).substring(2, 9),
+      // Unique Peer IDs for host and audience
+      hostPeerId: 'host-' + Math.random().toString(36).substring(2, 9),
+      audiencePeerId: 'viewer-' + Math.random().toString(36).substring(2, 9),
 
-      // Signaling Bus with Deduplication
-      broadcastChannel: null,
-      processedMessageIds: new Set(),
-      msgSeq: 0,
-
-      // Broadcaster Media & P2P Sockets
-      isBroadcasting: false,
-      isScreenSharing: false,
-      isCameraEnabled: true,
+      // Media State
+      isLive: false,
+      activeSource: 'camera', // 'camera' | 'screen' | 'smpte'
+      isCameraMuted: false,
       isAudioMuted: false,
       isMirrored: false,
-      isTestCardActive: false,
 
-      mediaStream: null,       // Camera or Screen raw media stream
-      canvasStream: null,      // Rendered Master Video Canvas stream (1920x1080)
-      broadcastAudioStream: null,
+      // Compositor & Master Stream
+      masterCanvasStream: null,
+      rawMediaStream: null,
+      broadcastAudioTrack: null,
 
-      // Audio DSP graph
-      audioCtx: null,
-      sourceNode: null,
+      // Audio DSP
+      audioContext: null,
       gainNode: null,
-      analyserNode: null,
-
-      // Overlays
-      showLowerThird: true,
-      lowerThirdTitle: 'WaveCast FHD Studio',
-      lowerThirdSub: '1080p 16:9 Full HD Stream',
-
-      // Master Canvas Rendering & Dual Clock
-      fpsCounter: 0,
-      fpsLastTime: performance.now(),
-      fpsCurrent: 30,
-      lastDrawTime: performance.now(),
-
-      // SMPTE Test Card Generator
-      testCardAnimId: null,
       synthOsc: null,
       synthGain: null,
 
-      // Recording
-      mediaRecorder: null,
-      recordedChunks: [],
-      recordingStartTime: null,
-      recordingTimerInterval: null,
+      // Lower Third
+      lowerThirdTitle: 'WaveCast FHD Studio',
+      lowerThirdSub: '1080p 16:9 Full HD Stream',
 
-      // Broadcaster Audience Mesh: peerId -> { pc, dc, pendingCandidates, rttMs }
-      audience: new Map(),
+      // FPS Metrics
+      frameCount: 0,
+      lastFpsTime: performance.now(),
+      currentFps: 30,
 
-      // Listener State
-      listenerPc: null,
-      listenerDc: null,
-      listenerStream: null,
-      listenerPendingCandidates: [],
-      joinTimeoutTimer: null
+      // WebRTC Mesh (Broadcaster -> audience peers)
+      connectedViewers: new Map(), // peerId -> { pc, dc, pendingCandidates }
+
+      // Audience Receiver Peer
+      audiencePc: null,
+      audienceDc: null,
+      audiencePendingCandidates: [],
+
+      // Cross-Tab & Internal Signaling Bus
+      broadcastChannel: null
     };
 
-    window.addEventListener('DOMContentLoaded', async () => {
+    // Initialize application on DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
-
-      // Resolve permanent Station ID
-      resolveStationRoomId();
-
-      // Enumerate media devices
-      await populateMediaDevices();
-
-      // Start local monitor loop (1080p canvas with watchdog)
-      initBroadcasterCanvasLoop();
-
-      // Initialize Canvas-Safe Signaling Mesh with Deduplication
-      initSignalingMesh();
-
-      // Check URL query parameters or hash to set viewer mode
-      evaluateUrlRouting();
+      resolveInitialStationId();
+      initSignalingBus();
+      startMasterCompositorLoop();
+      autoStartCameraPreview();
     });
 
-    /**
-     * Resolves permanent station ID from URL query param or localStorage
-     */
-    function resolveStationRoomId() {
+    function resolveInitialStationId() {
       const urlParams = new URLSearchParams(window.location.search);
-      const roomParam = urlParams.get('room');
-      const savedRoom = localStorage.getItem(STORAGE_KEY_ROOM_ID);
+      const queryRoom = urlParams.get('room');
+      const savedRoom = localStorage.getItem(STORAGE_STATION_KEY);
 
-      const finalId = (roomParam && roomParam.trim()) || (savedRoom && savedRoom.trim()) || DEFAULT_STATIC_ROOM_ID;
-      state.staticRoomId = sanitizeId(finalId);
-      try {
-        localStorage.setItem(STORAGE_KEY_ROOM_ID, state.staticRoomId);
-      } catch (e) {}
+      const resolved = (queryRoom && queryRoom.trim()) || (savedRoom && savedRoom.trim()) || DEFAULT_STATION_ID;
+      appState.stationId = sanitizeId(resolved);
 
-      const staticInput = document.getElementById('staticRoomInput');
-      const listenerInput = document.getElementById('listenerStationInput');
-      if (staticInput) staticInput.value = state.staticRoomId;
-      if (listenerInput) listenerInput.value = state.staticRoomId;
+      const input = document.getElementById('roomNameInput');
+      if (input) input.value = appState.stationId;
+
+      if (window.location.hash === '#audience') {
+        setActiveViewMode('audience');
+      } else if (window.location.hash === '#split') {
+        setActiveViewMode('split');
+      }
     }
 
     function sanitizeId(str) {
-      return str.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').slice(0, 48);
+      return str.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').slice(0, 40);
     }
 
-    /**
-     * Canvas-Safe Signaling Engine with Deduplication:
-     * Uses BroadcastChannel + localStorage events + in-window CustomEvents.
-     * Every message has a unique msgId to eliminate double-firing.
-     */
-    function initSignalingMesh() {
-      if (state.broadcastChannel) {
-        try { state.broadcastChannel.close(); } catch(e) {}
+    function saveAndApplyStationId() {
+      const input = document.getElementById('roomNameInput');
+      const sanitized = sanitizeId(input.value.trim() || DEFAULT_STATION_ID);
+      appState.stationId = sanitized;
+      input.value = sanitized;
+
+      try {
+        localStorage.setItem(STORAGE_STATION_KEY, sanitized);
+      } catch (e) {}
+
+      const url = new URL(window.location);
+      url.searchParams.set('room', sanitized);
+      window.history.replaceState({}, '', url);
+
+      initSignalingBus();
+      appendSystemMessage(`Station ID changed to "${sanitized}". Reconnected mesh.`, 'host');
+      appendSystemMessage(`Station ID changed to "${sanitized}".`, 'audience');
+    }
+
+    function copyPermanentLink() {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const shareUrl = `${baseUrl}?room=${appState.stationId}#audience`;
+
+      const temp = document.createElement('input');
+      temp.value = shareUrl;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+
+      appendSystemMessage(`Permanent viewer link copied: ${shareUrl}`, 'host');
+    }
+
+    function initSignalingBus() {
+      if (appState.broadcastChannel) {
+        try { appState.broadcastChannel.close(); } catch(e){}
       }
 
-      const channelName = `wavecast_bus_${state.staticRoomId}`;
+      const channelName = `wavecast_mesh_${appState.stationId}`;
       try {
         if ('BroadcastChannel' in window) {
-          state.broadcastChannel = new BroadcastChannel(channelName);
-          state.broadcastChannel.onmessage = (event) => {
-            handleSignalingMessage(event.data);
+          appState.broadcastChannel = new BroadcastChannel(channelName);
+          appState.broadcastChannel.onmessage = (event) => {
+            dispatchSignalMessage(event.data);
           };
         }
-      } catch(e) {
-        console.warn('BroadcastChannel note:', e);
+      } catch (err) {
+        console.warn('BroadcastChannel fallback:', err);
       }
 
-      // Storage event fallback for cross-tab communications
+      // Storage event fallback for cross-tab iframe environments
       window.addEventListener('storage', (e) => {
-        if (e.key === `wavecast_sig_${state.staticRoomId}` && e.newValue) {
+        if (e.key === `sig_${appState.stationId}` && e.newValue) {
           try {
             const data = JSON.parse(e.newValue);
-            handleSignalingMessage(data);
+            dispatchSignalMessage(data);
           } catch(err){}
         }
       });
 
-      // In-window dispatch fallback for immediate in-tab communication
+      // Internal in-memory event dispatch for single-page / split view
       window.addEventListener('wavecast-internal-signal', (e) => {
-        if (e.detail) handleSignalingMessage(e.detail);
+        if (e.detail) dispatchSignalMessage(e.detail);
       });
-
-      updatePeerStatusBadge('online', 'P2P Mesh Ready');
-      appendChatMessage('system', `P2P Mesh ready on channel: "${state.staticRoomId}"`, state.activeTab);
     }
 
-    function sendSignal(data) {
-      state.msgSeq++;
-      const msgId = `${data.senderId || 'anon'}_${Date.now()}_${state.msgSeq}`;
-      const packet = { ...data, msgId, roomId: state.staticRoomId, timestamp: Date.now() };
+    function sendSignal(packet) {
+      const payload = {
+        ...packet,
+        stationId: appState.stationId,
+        timestamp: Date.now()
+      };
 
-      // Mark locally sent messages as already processed so loopback doesn't double-process
-      state.processedMessageIds.add(msgId);
-      cleanupProcessedMessageIds();
-
-      // 1. BroadcastChannel (Cross-tab)
-      if (state.broadcastChannel) {
-        try { state.broadcastChannel.postMessage(packet); } catch(e){}
+      // 1. Cross-tab BroadcastChannel
+      if (appState.broadcastChannel) {
+        try { appState.broadcastChannel.postMessage(payload); } catch(e){}
       }
 
-      // 2. Storage event (Cross-tab fallback)
+      // 2. Storage event fallback
       try {
-        localStorage.setItem(`wavecast_sig_${state.staticRoomId}`, JSON.stringify(packet));
+        localStorage.setItem(`sig_${appState.stationId}`, JSON.stringify(payload));
       } catch(e){}
 
-      // 3. Same-window internal dispatch (Single-tab loopback)
+      // 3. In-memory dispatch for same-window / split mode
       try {
-        window.dispatchEvent(new CustomEvent('wavecast-internal-signal', { detail: packet }));
+        window.dispatchEvent(new CustomEvent('wavecast-internal-signal', { detail: payload }));
       } catch(e){}
     }
 
-    function cleanupProcessedMessageIds() {
-      if (state.processedMessageIds.size > 200) {
-        const arr = Array.from(state.processedMessageIds);
-        state.processedMessageIds = new Set(arr.slice(100));
+    function dispatchSignalMessage(msg) {
+      if (!msg || msg.stationId !== appState.stationId) return;
+
+      // Handle Host Incoming Signals (from audience peers)
+      if (msg.targetId === appState.hostPeerId || (!msg.targetId && msg.senderId !== appState.hostPeerId)) {
+        if (msg.type === 'join-request') {
+          handleHostReceiveViewerJoin(msg.senderId);
+        } else if (msg.type === 'answer') {
+          handleHostReceiveAnswer(msg.senderId, msg.sdp);
+        } else if (msg.type === 'ice-candidate') {
+          handleHostReceiveCandidate(msg.senderId, msg.candidate);
+        }
+      }
+
+      // Handle Audience Incoming Signals (from host)
+      if (msg.targetId === appState.audiencePeerId || (!msg.targetId && msg.senderId !== appState.audiencePeerId)) {
+        if (msg.type === 'offer') {
+          handleAudienceReceiveOffer(msg.senderId, msg.sdp);
+        } else if (msg.type === 'ice-candidate') {
+          handleAudienceReceiveCandidate(msg.candidate);
+        }
+      }
+
+      // Live Chat & Reactions Forwarding
+      if (msg.type === 'chat') {
+        appendChatMessage(msg.sender, msg.text, msg.role);
+      } else if (msg.type === 'reaction') {
+        renderFloatingReaction(msg.emoji);
       }
     }
 
-    async function handleSignalingMessage(msg) {
-      if (!msg || msg.roomId !== state.staticRoomId) return;
+    function startMasterCompositorLoop() {
+      const canvas = document.getElementById('masterCompositorCanvas');
+      const ctx = canvas.getContext('2d');
+      const rawVideo = document.getElementById('cameraRawVideo');
 
-      // Deduplicate: If we already processed this message, drop it
-      if (msg.msgId) {
-        if (state.processedMessageIds.has(msg.msgId)) {
-          // If this is a loopback event from this exact window, allow internal routing if cross-role
-          if (msg.senderId === state.broadcasterId && msg.targetId === state.listenerId) {
-            // continue for loopback
-          } else if (msg.senderId === state.listenerId && (msg.targetId === state.broadcasterId || msg.type === 'listener-join')) {
-            // continue for loopback
+      const W = 1920;
+      const H = 1080;
+
+      function renderFrame(time) {
+        // Track FPS
+        appState.frameCount++;
+        if (time - appState.lastFpsTime >= 1000) {
+          appState.currentFps = appState.frameCount;
+          appState.frameCount = 0;
+          appState.lastFpsTime = time;
+          const fpsEl = document.getElementById('hostFpsText');
+          if (fpsEl) fpsEl.textContent = `${appState.currentFps} FPS`;
+        }
+
+        // Fill 1080p Canvas Base
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+
+        if (appState.activeSource === 'smpte') {
+          drawSmpte1080pPattern(ctx, W, H);
+        } else if (!appState.isCameraMuted && rawVideo.readyState >= 2) {
+          // Render Live Camera or Screen Share with Letterbox / Pillarbox centering
+          const vw = rawVideo.videoWidth || W;
+          const vh = rawVideo.videoHeight || H;
+          const videoRatio = vw / vh;
+          const canvasRatio = W / H;
+
+          let dw = W;
+          let dh = H;
+          let dx = 0;
+          let dy = 0;
+
+          if (videoRatio > canvasRatio) {
+            dw = W;
+            dh = W / videoRatio;
+            dy = (H - dh) / 2;
           } else {
-            return;
+            dh = H;
+            dw = H * videoRatio;
+            dx = (W - dw) / 2;
           }
+
+          ctx.save();
+          if (appState.isMirrored && appState.activeSource === 'camera') {
+            ctx.translate(W, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(rawVideo, dx, dy, dw, dh);
+          } else {
+            ctx.drawImage(rawVideo, dx, dy, dw, dh);
+          }
+          ctx.restore();
+        } else {
+          // Video Off / Muted Screen
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = '#64748b';
+          ctx.font = 'bold 36px Inter, system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText('CAMERA FEED PAUSED', W / 2, H / 2);
         }
-        state.processedMessageIds.add(msg.msgId);
-        cleanupProcessedMessageIds();
+
+        // Draw Studio Lower-Third Graphic (Burned into 1080p Stream)
+        drawLowerThirdOverlay(ctx, W, H);
+
+        requestAnimationFrame(renderFrame);
       }
 
-      // --- BROADCASTER HANDLERS ---
-      if (msg.senderId !== state.broadcasterId) {
-        if (msg.type === 'listener-join') {
-          handleBroadcasterReceiveJoin(msg.senderId);
-        } else if (msg.type === 'answer' && msg.targetId === state.broadcasterId) {
-          handleBroadcasterReceiveAnswer(msg.senderId, msg.sdp);
-        } else if (msg.type === 'ice-candidate' && msg.targetId === state.broadcasterId) {
-          handleBroadcasterReceiveCandidate(msg.senderId, msg.candidate);
-        } else if ((msg.type === 'chat' || msg.type === 'reaction') && state.activeTab === 'broadcaster') {
-          handleDataPayload(msg);
-        }
-      }
+      requestAnimationFrame(renderFrame);
 
-      // --- LISTENER HANDLERS ---
-      if (msg.senderId !== state.listenerId) {
-        if (msg.type === 'offer' && (msg.targetId === state.listenerId || !msg.targetId)) {
-          handleListenerReceiveOffer(msg.senderId, msg.sdp);
-        } else if (msg.type === 'ice-candidate' && msg.targetId === state.listenerId) {
-          handleListenerReceiveCandidate(msg.candidate);
-        } else if (msg.type === 'stream-status') {
-          updateStreamStatusBadge(msg.status);
-        } else if ((msg.type === 'chat' || msg.type === 'reaction') && state.activeTab === 'listener') {
-          handleDataPayload(msg);
-        }
-      }
+      // Create Master 1080p MediaStream Track
+      appState.masterCanvasStream = canvas.captureStream(30);
     }
 
-    function applyAndPersistCustomRoomId() {
-      const input = document.getElementById('staticRoomInput');
-      const val = sanitizeId(input.value.trim());
+    function drawLowerThirdOverlay(ctx, W, H) {
+      const boxX = 60;
+      const boxY = H - 160;
+      const boxW = 760;
+      const boxH = 100;
 
-      if (!val) {
-        appendChatMessage('system', 'Room ID cannot be blank.', state.activeTab);
-        return;
+      ctx.save();
+      // Frosted Glass Box
+      ctx.fillStyle = 'rgba(9, 13, 22, 0.9)';
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.85)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cyan Accent Strip
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillRect(boxX + 20, boxY + 18, 6, boxH - 36);
+
+      // Header Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(appState.lowerThirdTitle.toUpperCase(), boxX + 42, boxY + 48);
+
+      // Subtitle
+      ctx.fillStyle = '#06b6d4';
+      ctx.font = '500 20px JetBrains Mono, monospace';
+      ctx.fillText(appState.lowerThirdSub, boxX + 42, boxY + 80);
+
+      ctx.restore();
+    }
+
+    function drawSmpte1080pPattern(ctx, W, H) {
+      const smpteBars = ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'];
+      const barW = W / 7;
+
+      // 75% Color Bars
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = smpteBars[i];
+        ctx.fillRect(i * barW, 0, barW, H * 0.7);
       }
 
-      state.staticRoomId = val;
+      // Middle Transition
+      const midColors = ['#0000c0', '#131313', '#c000c0', '#131313', '#00c0c0', '#131313', '#c0c0c0'];
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = midColors[i];
+        ctx.fillRect(i * barW, H * 0.7, barW, H * 0.08);
+      }
+
+      // Dark Base Section
+      ctx.fillStyle = '#060913';
+      ctx.fillRect(0, H * 0.78, W, H * 0.22);
+
+      // High-precision Studio Timecode
+      ctx.fillStyle = '#06b6d4';
+      ctx.font = 'bold 44px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      const now = new Date();
+      ctx.fillText(`WAVECAST 1080p FULL HD • ${now.toTimeString().split(' ')[0]}`, W / 2, H * 0.88);
+
+      // Moving Sweep Tick for Latency Diagnostics
+      const sweepX = (Date.now() / 2.5) % W;
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(sweepX, H * 0.76, 50, 22);
+    }
+
+    async function autoStartCameraPreview() {
       try {
-        localStorage.setItem(STORAGE_KEY_ROOM_ID, val);
-      } catch (e) {}
-      input.value = val;
-
-      const listenerInput = document.getElementById('listenerStationInput');
-      if (listenerInput) listenerInput.value = val;
-
-      const newUrl = new URL(window.location);
-      newUrl.searchParams.set('room', val);
-      window.history.replaceState({}, '', newUrl);
-
-      appendChatMessage('system', `Station ID switched to "${val}". Reconnecting mesh...`, state.activeTab);
-      initSignalingMesh();
+        await selectVideoSource('camera');
+      } catch (e) {
+        console.log('Camera auto-start notice, using SMPTE default:', e);
+        selectVideoSource('smpte');
+      }
     }
 
-    // Standard STUN candidates
-    const RTC_CONFIG = {
+    async function selectVideoSource(type) {
+      appState.activeSource = type;
+      stopActiveSynthAudio();
+
+      const btnCam = document.getElementById('srcCameraBtn');
+      const btnScreen = document.getElementById('srcScreenBtn');
+      const btnSmpte = document.getElementById('srcSmpteBtn');
+
+      [btnCam, btnScreen, btnSmpte].forEach(b => b.classList.remove('bg-cyan-950', 'border-cyan-500', 'text-cyan-300'));
+
+      if (type === 'camera') {
+        btnCam.classList.add('bg-cyan-950', 'border-cyan-500', 'text-cyan-300');
+        document.getElementById('currentSourceBadge').textContent = 'Source: Camera 1080p';
+        await startCameraStream();
+      } else if (type === 'screen') {
+        btnScreen.classList.add('bg-cyan-950', 'border-cyan-500', 'text-cyan-300');
+        document.getElementById('currentSourceBadge').textContent = 'Source: Screen Share (1080p)';
+        await startScreenStream();
+      } else if (type === 'smpte') {
+        btnSmpte.classList.add('bg-cyan-950', 'border-cyan-500', 'text-cyan-300');
+        document.getElementById('currentSourceBadge').textContent = 'Source: SMPTE 1080p Generator';
+        startSmpteSynthAudio();
+      }
+
+      hotSwapBroadcasterTracks();
+    }
+
+    async function startCameraStream() {
+      if (appState.rawMediaStream) {
+        appState.rawMediaStream.getTracks().forEach(t => t.stop());
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            aspectRatio: { ideal: 1.7777777778 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 48000
+          }
+        });
+
+        appState.rawMediaStream = stream;
+        const rawVideo = document.getElementById('cameraRawVideo');
+        rawVideo.srcObject = stream;
+        await rawVideo.play();
+
+        setupAudioDspPipeline(stream);
+        document.getElementById('hostStandbyOverlay').classList.add('hidden');
+      } catch (err) {
+        console.warn('Camera not available or denied:', err);
+        appendSystemMessage(`Camera note: ${err.message}. Switched to 1080p SMPTE Bars.`, 'host');
+        selectVideoSource('smpte');
+      }
+    }
+
+    async function startScreenStream() {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            aspectRatio: 1.7777777778,
+            cursor: 'always'
+          },
+          audio: true
+        });
+
+        appState.rawMediaStream = screenStream;
+        const rawVideo = document.getElementById('cameraRawVideo');
+        rawVideo.srcObject = screenStream;
+        await rawVideo.play();
+
+        setupAudioDspPipeline(screenStream);
+        document.getElementById('hostStandbyOverlay').classList.add('hidden');
+
+        screenStream.getVideoTracks()[0].onended = () => {
+          selectVideoSource('camera');
+        };
+      } catch (err) {
+        console.warn('Screen share cancelled:', err);
+        selectVideoSource('camera');
+      }
+    }
+
+    function setupAudioDspPipeline(stream) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!appState.audioContext) {
+          appState.audioContext = new AudioCtx({ sampleRate: 48000 });
+        }
+        if (appState.audioContext.state === 'suspended') {
+          appState.audioContext.resume().catch(() => {});
+        }
+
+        const source = appState.audioContext.createMediaStreamSource(stream);
+        appState.gainNode = appState.audioContext.createGain();
+        appState.gainNode.gain.value = parseFloat(document.getElementById('micGainSlider').value);
+
+        const dest = appState.audioContext.createMediaStreamDestination();
+        source.connect(appState.gainNode);
+        appState.gainNode.connect(dest);
+
+        appState.broadcastAudioTrack = dest.stream.getAudioTracks()[0];
+      } catch (e) {
+        console.warn('Audio DSP initialization notice:', e);
+        if (stream.getAudioTracks().length > 0) {
+          appState.broadcastAudioTrack = stream.getAudioTracks()[0];
+        }
+      }
+    }
+
+    function startSmpteSynthAudio() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!appState.audioContext) {
+          appState.audioContext = new AudioCtx({ sampleRate: 48000 });
+        }
+        if (appState.audioContext.state === 'suspended') {
+          appState.audioContext.resume().catch(() => {});
+        }
+
+        const osc = appState.audioContext.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, appState.audioContext.currentTime);
+
+        const gain = appState.audioContext.createGain();
+        gain.gain.setValueAtTime(0.04, appState.audioContext.currentTime);
+
+        const dest = appState.audioContext.createMediaStreamDestination();
+        osc.connect(gain);
+        gain.connect(dest);
+
+        osc.start();
+        appState.synthOsc = osc;
+        appState.synthGain = gain;
+        appState.broadcastAudioTrack = dest.stream.getAudioTracks()[0];
+        document.getElementById('hostStandbyOverlay').classList.add('hidden');
+      } catch (e) {}
+    }
+
+    function stopActiveSynthAudio() {
+      if (appState.synthOsc) {
+        try { appState.synthOsc.stop(); } catch(e){}
+        appState.synthOsc = null;
+      }
+    }
+
+    function setHostAudioGain(val) {
+      if (appState.gainNode && appState.audioContext) {
+        appState.gainNode.gain.setValueAtTime(parseFloat(val), appState.audioContext.currentTime);
+      }
+      document.getElementById('gainValueText').textContent = `${parseFloat(val).toFixed(2)}x`;
+    }
+
+    const RTC_CONFIGURATION = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' }
-      ],
-      iceCandidatePoolSize: 10
+      ]
     };
 
-    /**
-     * Broadcaster handles a new viewer requesting connection
-     */
-    async function handleBroadcasterReceiveJoin(listenerId) {
-      // Ensure broadcaster media is initialized if live
-      if (!state.isBroadcasting && !state.canvasStream) {
-        // If not broadcasting yet, wait for host to go live rather than forcing SMPTE
+    function toggleBroadcastTransmission() {
+      if (!appState.isLive) {
+        appState.isLive = true;
+        document.getElementById('broadcastActionBtn').classList.replace('bg-rose-600', 'bg-slate-700');
+        document.getElementById('broadcastActionLabel').textContent = 'End Broadcast';
+
+        const dot = document.getElementById('hostStatusDot');
+        const text = document.getElementById('hostStatusText');
+        const badge = document.getElementById('hostStatusBadge');
+
+        dot.className = 'w-2 h-2 rounded-full bg-rose-500 pulse-live';
+        text.textContent = 'LIVE ON AIR (1080p FHD)';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40';
+
+        appendSystemMessage(`Broadcasting LIVE in 1080p Full HD on station "${appState.stationId}"!`, 'host');
+
+        // Notify potential viewers
         sendSignal({
-          type: 'stream-status',
-          senderId: state.broadcasterId,
-          targetId: listenerId,
-          status: 'offline'
+          type: 'host-live-ping',
+          senderId: appState.hostPeerId
         });
-        return;
-      }
-
-      if (state.audience.has(listenerId)) {
-        try { state.audience.get(listenerId).pc.close(); } catch(e){}
-      }
-
-      const pc = new RTCPeerConnection(RTC_CONFIG);
-      const dc = pc.createDataChannel('wavecast_chat', { ordered: true });
-      setupDataChannelEvents(dc, listenerId);
-
-      // Store candidate queue on broadcaster peer entry to prevent race condition drops
-      const peerEntry = { 
-        pc, 
-        dc, 
-        rttMs: '< 2 ms',
-        pendingCandidates: [] 
-      };
-      state.audience.set(listenerId, peerEntry);
-      updateAudienceRoster();
-
-      // Ensure Master 1080p Canvas stream is active
-      if (!state.canvasStream) {
-        const masterCanvas = document.getElementById('broadcasterMasterCanvas');
-        state.canvasStream = masterCanvas.captureStream(30);
-      }
-
-      // Add Master Canvas 1080p video tracks
-      state.canvasStream.getVideoTracks().forEach(track => {
-        pc.addTrack(track, state.canvasStream);
-      });
-
-      // Ensure at least one audio track exists (silent fallback if no mic active)
-      let audioTrack = null;
-      if (state.broadcastAudioStream && state.broadcastAudioStream.getAudioTracks().length > 0) {
-        audioTrack = state.broadcastAudioStream.getAudioTracks()[0];
       } else {
-        const silentDest = getSilentAudioDestination();
-        audioTrack = silentDest.stream.getAudioTracks()[0];
+        appState.isLive = false;
+        document.getElementById('broadcastActionBtn').classList.replace('bg-slate-700', 'bg-rose-600');
+        document.getElementById('broadcastActionLabel').textContent = 'Go Live (1080p)';
+
+        const dot = document.getElementById('hostStatusDot');
+        const text = document.getElementById('hostStatusText');
+        const badge = document.getElementById('hostStatusBadge');
+
+        dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        text.textContent = 'STANDBY PREVIEW';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700';
+
+        appendSystemMessage('Broadcast stopped. Station is now in standby.', 'host');
       }
-      if (audioTrack) {
-        pc.addTrack(audioTrack, state.canvasStream);
+    }
+
+    async function handleHostReceiveViewerJoin(viewerPeerId) {
+      // Create new RTCPeerConnection for this viewer
+      if (appState.connectedViewers.has(viewerPeerId)) {
+        try { appState.connectedViewers.get(viewerPeerId).pc.close(); } catch(e){}
       }
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
+      const pc = new RTCPeerConnection(RTC_CONFIGURATION);
+      const dc = pc.createDataChannel('studio_chat', { ordered: true });
+
+      const viewerRecord = {
+        pc,
+        dc,
+        pendingCandidates: []
+      };
+      appState.connectedViewers.set(viewerPeerId, viewerRecord);
+      updateHostViewerRoster();
+
+      // Add Master 1080p Canvas Video Track
+      if (appState.masterCanvasStream) {
+        const videoTrack = appState.masterCanvasStream.getVideoTracks()[0];
+        if (videoTrack) pc.addTrack(videoTrack, appState.masterCanvasStream);
+      }
+
+      // Add Broadcast Audio Track (Mic or Synth)
+      if (appState.broadcastAudioTrack) {
+        pc.addTrack(appState.broadcastAudioTrack, appState.masterCanvasStream);
+      } else {
+        // Fallback silent audio track
+        const silentTrack = createSilentAudioTrack();
+        if (silentTrack) pc.addTrack(silentTrack, appState.masterCanvasStream);
+      }
+
+      // ICE Candidates
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
           sendSignal({
             type: 'ice-candidate',
-            senderId: state.broadcasterId,
-            targetId: listenerId,
-            candidate: event.candidate.toJSON()
+            senderId: appState.hostPeerId,
+            targetId: viewerPeerId,
+            candidate: e.candidate.toJSON()
           });
         }
       };
 
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-          state.audience.delete(listenerId);
-          updateAudienceRoster();
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+          appState.connectedViewers.delete(viewerPeerId);
+          updateHostViewerRoster();
         }
       };
 
       try {
-        const offer = await pc.createOffer({
-          offerToReceiveAudio: false,
-          offerToReceiveVideo: false
-        });
+        const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
         sendSignal({
           type: 'offer',
-          senderId: state.broadcasterId,
-          targetId: listenerId,
+          senderId: appState.hostPeerId,
+          targetId: viewerPeerId,
           sdp: pc.localDescription
         });
       } catch (err) {
-        console.error('Failed to create broadcaster offer:', err);
+        console.error('Error creating host offer:', err);
       }
     }
 
-    function getSilentAudioDestination() {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!state.audioCtx) state.audioCtx = new AudioCtx({ sampleRate: 48000 });
-      if (state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume().catch(() => {});
+    function createSilentAudioTrack() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        const dest = ctx.createMediaStreamDestination();
+        osc.connect(gain);
+        gain.connect(dest);
+        osc.start();
+        return dest.stream.getAudioTracks()[0];
+      } catch(e) {
+        return null;
       }
-      const osc = state.audioCtx.createOscillator();
-      const gain = state.audioCtx.createGain();
-      gain.gain.value = 0;
-      osc.connect(gain);
-      const dest = state.audioCtx.createMediaStreamDestination();
-      gain.connect(dest);
-      osc.start();
-      return dest;
     }
 
-    async function handleBroadcasterReceiveAnswer(listenerId, sdp) {
-      const entry = state.audience.get(listenerId);
-      if (entry && entry.pc) {
-        try {
-          if (entry.pc.signalingState !== 'stable') {
-            await entry.pc.setRemoteDescription(new RTCSessionDescription(sdp));
-            // Flush any ICE candidates queued before answer arrived
-            if (entry.pendingCandidates && entry.pendingCandidates.length > 0) {
-              while (entry.pendingCandidates.length > 0) {
-                const cand = entry.pendingCandidates.shift();
-                try {
-                  await entry.pc.addIceCandidate(new RTCIceCandidate(cand));
-                } catch(e) {}
-              }
-            }
-          }
-        } catch(err) {
-          console.warn('Broadcaster setRemoteDescription warning:', err);
+    async function handleHostReceiveAnswer(viewerPeerId, sdp) {
+      const record = appState.connectedViewers.get(viewerPeerId);
+      if (!record || !record.pc) return;
+
+      try {
+        await record.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        // Flush any candidates received before answer arrived
+        while (record.pendingCandidates.length > 0) {
+          const cand = record.pendingCandidates.shift();
+          try { await record.pc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e){}
         }
+      } catch (err) {
+        console.warn('Host setRemoteDescription notice:', err);
       }
     }
 
-    async function handleBroadcasterReceiveCandidate(listenerId, candidate) {
-      const entry = state.audience.get(listenerId);
-      if (!entry || !entry.pc) return;
+    async function handleHostReceiveCandidate(viewerPeerId, candidate) {
+      const record = appState.connectedViewers.get(viewerPeerId);
+      if (!record || !record.pc) return;
 
-      // Queue candidates if remoteDescription is not yet set
-      if (!entry.pc.remoteDescription || !entry.pc.remoteDescription.type) {
-        if (!entry.pendingCandidates) entry.pendingCandidates = [];
-        entry.pendingCandidates.push(candidate);
+      if (!record.pc.remoteDescription) {
+        record.pendingCandidates.push(candidate);
       } else {
         try {
-          await entry.pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch(e) {}
+          await record.pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch(e){}
       }
     }
 
-    /**
-     * Listener receives offer and constructs answer
-     */
-    async function handleListenerReceiveOffer(broadcasterId, sdp) {
-      if (state.joinTimeoutTimer) {
-        clearTimeout(state.joinTimeoutTimer);
-        state.joinTimeoutTimer = null;
-      }
+    function hotSwapBroadcasterTracks() {
+      if (!appState.masterCanvasStream) return;
+      const vTrack = appState.masterCanvasStream.getVideoTracks()[0];
+      const aTrack = appState.broadcastAudioTrack;
 
-      if (state.listenerPc) {
-        try { state.listenerPc.close(); } catch(e){}
-      }
-
-      const pc = new RTCPeerConnection(RTC_CONFIG);
-      state.listenerPc = pc;
-
-      pc.ondatachannel = (event) => {
-        state.listenerDc = event.channel;
-        setupDataChannelEvents(event.channel, broadcasterId);
-      };
-
-      // Ensure listener stream container exists and tracks are merged cleanly
-      pc.ontrack = (event) => {
-        if (!state.listenerStream) {
-          state.listenerStream = new MediaStream();
-        }
-        if (event.streams && event.streams[0]) {
-          event.streams[0].getTracks().forEach(t => {
-            if (!state.listenerStream.getTracks().includes(t)) {
-              state.listenerStream.addTrack(t);
-            }
-          });
-        } else if (event.track) {
-          if (!state.listenerStream.getTracks().includes(event.track)) {
-            state.listenerStream.addTrack(event.track);
+      appState.connectedViewers.forEach(({ pc }) => {
+        if (!pc) return;
+        pc.getSenders().forEach(sender => {
+          if (sender.track && sender.track.kind === 'video' && vTrack) {
+            sender.replaceTrack(vTrack).catch(e => console.warn(e));
           }
+          if (sender.track && sender.track.kind === 'audio' && aTrack) {
+            sender.replaceTrack(aTrack).catch(e => console.warn(e));
+          }
+        });
+      });
+    }
+
+    async function joinLiveBroadcast() {
+      document.getElementById('tuneInBtnText').textContent = 'Connecting...';
+      document.getElementById('tuneInBtn').disabled = true;
+      document.getElementById('telemetryIce').textContent = 'CONNECTING...';
+
+      // Clean up previous connection
+      if (appState.audiencePc) {
+        try { appState.audiencePc.close(); } catch(e){}
+      }
+
+      const pc = new RTCPeerConnection(RTC_CONFIGURATION);
+      appState.audiencePc = pc;
+
+      // Handle inbound Full HD tracks
+      pc.ontrack = (event) => {
+        const videoEl = document.getElementById('remoteAudienceVideo');
+        if (event.streams && event.streams[0]) {
+          videoEl.srcObject = event.streams[0];
+        } else {
+          if (!videoEl.srcObject) videoEl.srcObject = new MediaStream();
+          videoEl.srcObject.addTrack(event.track);
         }
-        handleRemoteVideoStream(state.listenerStream);
+
+        // Guaranteed autoplay: begin muted
+        videoEl.muted = true;
+        videoEl.play().then(() => {
+          document.getElementById('audienceStandbyScreen').classList.add('hidden');
+          document.getElementById('unmutePillBtn').classList.remove('hidden');
+          document.getElementById('audienceLiveTag').classList.replace('hidden', 'inline-flex');
+        }).catch(err => console.warn('Autoplay notice:', err));
       };
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
           sendSignal({
             type: 'ice-candidate',
-            senderId: state.listenerId,
-            targetId: broadcasterId,
-            candidate: event.candidate.toJSON()
+            senderId: appState.audiencePeerId,
+            targetId: appState.hostPeerId,
+            candidate: e.candidate.toJSON()
           });
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        const ice = pc.iceConnectionState;
-        const statEl = document.getElementById('statIce');
-        if (statEl) statEl.textContent = ice.toUpperCase();
-        if (ice === 'connected' || ice === 'completed') {
-          const lat = document.getElementById('statLatency');
+        const state = pc.iceConnectionState;
+        const statEl = document.getElementById('telemetryIce');
+        if (statEl) statEl.textContent = state.toUpperCase();
+
+        if (state === 'connected' || state === 'completed') {
+          const lat = document.getElementById('telemetryLatency');
           if (lat) lat.textContent = '< 5 ms';
-          updateStreamStatusBadge('live');
         }
       };
 
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      // Request connection from Host
+      sendSignal({
+        type: 'join-request',
+        senderId: appState.audiencePeerId,
+        targetId: appState.hostPeerId
+      });
 
-        // Process any queued ICE candidates that arrived before remoteDescription
-        while (state.listenerPendingCandidates.length > 0) {
-          const cand = state.listenerPendingCandidates.shift();
-          try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e){}
+      // Update UI buttons
+      document.getElementById('tuneInBtn').classList.add('hidden');
+      document.getElementById('leaveStationBtn').classList.replace('hidden', 'flex');
+      document.getElementById('audienceChatInput').disabled = false;
+      document.getElementById('audienceSendBtn').disabled = false;
+
+      // Same-Window Instant Bridge: if Host is live on the same tab, connect immediately
+      setTimeout(() => {
+        const videoEl = document.getElementById('remoteAudienceVideo');
+        if (!videoEl.srcObject && appState.masterCanvasStream) {
+          videoEl.srcObject = appState.masterCanvasStream;
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
+          document.getElementById('audienceStandbyScreen').classList.add('hidden');
+          document.getElementById('unmutePillBtn').classList.remove('hidden');
+          document.getElementById('telemetryIce').textContent = 'CONNECTED (Loopback)';
+          document.getElementById('audienceLiveTag').classList.replace('hidden', 'inline-flex');
+        }
+      }, 400);
+    }
+
+    async function handleAudienceReceiveOffer(hostPeerId, sdp) {
+      if (!appState.audiencePc) return;
+
+      try {
+        await appState.audiencePc.setRemoteDescription(new RTCSessionDescription(sdp));
+
+        // Flush queued candidates
+        while (appState.audiencePendingCandidates.length > 0) {
+          const cand = appState.audiencePendingCandidates.shift();
+          try { await appState.audiencePc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e){}
         }
 
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        const answer = await appState.audiencePc.createAnswer();
+        await appState.audiencePc.setLocalDescription(answer);
 
         sendSignal({
           type: 'answer',
-          senderId: state.listenerId,
-          targetId: broadcasterId,
-          sdp: pc.localDescription
+          senderId: appState.audiencePeerId,
+          targetId: hostPeerId,
+          sdp: appState.audiencePc.localDescription
         });
-
-        document.getElementById('listenerStandbyScreen').classList.add('hidden');
-        document.getElementById('statIce').textContent = 'CONNECTED (1080p FHD)';
-        updateStreamStatusBadge('live');
       } catch (err) {
-        console.error('Error handling offer in listener:', err);
+        console.error('Error handling host offer in audience:', err);
       }
     }
 
-    async function handleListenerReceiveCandidate(candidate) {
-      if (!state.listenerPc || !state.listenerPc.remoteDescription || !state.listenerPc.remoteDescription.type) {
-        state.listenerPendingCandidates.push(candidate);
-        return;
-      }
-      try {
-        await state.listenerPc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch(e){}
-    }
-
-    function updateStreamStatusBadge(status) {
-      const badge = document.getElementById('viewerStatusPill');
-      if (!badge) return;
-      if (status === 'live') {
-        badge.classList.remove('hidden');
-        badge.classList.add('inline-flex');
+    async function handleAudienceReceiveCandidate(candidate) {
+      if (!appState.audiencePc || !appState.audiencePc.remoteDescription) {
+        appState.audiencePendingCandidates.push(candidate);
       } else {
-        badge.classList.add('hidden');
+        try {
+          await appState.audiencePc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch(e){}
       }
     }
 
-    /**
-     * Audience Receiver Trigger (Tuning in via Canvas mesh)
-     */
-    function connectListenerToStation() {
-      const input = document.getElementById('listenerStationInput');
-      const targetRoom = sanitizeId(input.value.trim() || state.staticRoomId);
-
-      if (!targetRoom) {
-        appendChatMessage('system', 'Please enter a valid Station ID.', 'listener');
-        return;
+    function leaveLiveBroadcast() {
+      if (appState.audiencePc) {
+        try { appState.audiencePc.close(); } catch(e){}
+        appState.audiencePc = null;
       }
 
-      state.staticRoomId = targetRoom;
-      document.getElementById('tuneBtnLabel').textContent = 'Connecting...';
-      document.getElementById('listenerTuneBtn').disabled = true;
-      document.getElementById('statIce').textContent = 'SEARCHING HOST...';
+      const videoEl = document.getElementById('remoteAudienceVideo');
+      videoEl.srcObject = null;
 
-      // Send join request through local canvas signaling mesh
-      sendSignal({
-        type: 'listener-join',
-        senderId: state.listenerId,
-        roomId: targetRoom
-      });
-
-      // Update UI button state immediately
-      document.getElementById('listenerTuneBtn').classList.add('hidden');
-      document.getElementById('listenerLeaveBtn').classList.remove('hidden');
-      document.getElementById('listenerLeaveBtn').classList.add('flex');
-      document.getElementById('listenerChatInput').disabled = false;
-      document.getElementById('listenerSendBtn').disabled = false;
-
-      // In-tab loopback check: if broadcaster is live in the SAME window, connect directly
-      if (state.joinTimeoutTimer) clearTimeout(state.joinTimeoutTimer);
-      state.joinTimeoutTimer = setTimeout(() => {
-        const videoEl = document.getElementById('remoteVideoSink');
-        if (!videoEl.srcObject || videoEl.paused) {
-          if (state.isBroadcasting && state.canvasStream) {
-            handleRemoteVideoStream(state.canvasStream);
-            document.getElementById('statIce').textContent = 'CONNECTED (1080p Loopback)';
-          } else {
-            document.getElementById('statIce').textContent = 'WAITING FOR BROADCASTER...';
-          }
-        }
-      }, 1500);
+      document.getElementById('audienceStandbyScreen').classList.remove('hidden');
+      document.getElementById('unmutePillBtn').classList.add('hidden');
+      document.getElementById('audienceLiveTag').classList.replace('inline-flex', 'hidden');
+      document.getElementById('tuneInBtn').classList.remove('hidden');
+      document.getElementById('tuneInBtn').disabled = false;
+      document.getElementById('tuneInBtnText').textContent = 'Tune In Now';
+      document.getElementById('leaveStationBtn').classList.replace('flex', 'hidden');
+      document.getElementById('audienceChatInput').disabled = true;
+      document.getElementById('audienceSendBtn').disabled = true;
+      document.getElementById('telemetryIce').textContent = 'Standby';
     }
 
-    function disconnectListenerFromStation() {
-      if (state.joinTimeoutTimer) {
-        clearTimeout(state.joinTimeoutTimer);
-        state.joinTimeoutTimer = null;
-      }
-      if (state.listenerPc) {
-        try { state.listenerPc.close(); } catch(e){}
-        state.listenerPc = null;
-      }
-      if (state.listenerDc) {
-        try { state.listenerDc.close(); } catch(e){}
-        state.listenerDc = null;
-      }
-
-      const videoEl = document.getElementById('remoteVideoSink');
-      if (videoEl) videoEl.srcObject = null;
-      state.listenerStream = null;
-
-      document.getElementById('listenerStandbyScreen').classList.remove('hidden');
-      const unmuteBtn = document.getElementById('unmuteAudioBtn');
-      if (unmuteBtn) unmuteBtn.classList.add('hidden');
-      document.getElementById('listenerTuneBtn').classList.remove('hidden');
-      document.getElementById('listenerTuneBtn').disabled = false;
-      document.getElementById('tuneBtnLabel').textContent = 'Tune In';
-      document.getElementById('listenerLeaveBtn').classList.add('hidden');
-      document.getElementById('listenerChatInput').disabled = true;
-      document.getElementById('listenerSendBtn').disabled = true;
-      document.getElementById('viewerStatusPill').classList.add('hidden');
-      document.getElementById('statIce').textContent = 'Standby';
-    }
-
-    /**
-     * Attaches and begins playing remote video with browser autoplay compliance
-     */
-    function handleRemoteVideoStream(remoteStream) {
-      state.listenerStream = remoteStream;
-      const videoEl = document.getElementById('remoteVideoSink');
-
-      if (videoEl.srcObject !== remoteStream) {
-        videoEl.srcObject = remoteStream;
-      }
-
-      videoEl.muted = true; // Required by all major browsers to ensure immediate video playback without user block
-      
-      const attemptPlay = () => {
-        videoEl.play().catch(err => {
-          console.warn('Autoplay initial notice:', err);
-        });
-      };
-
-      videoEl.onloadedmetadata = attemptPlay;
-      attemptPlay();
-
-      document.getElementById('listenerStandbyScreen').classList.add('hidden');
-
-      // Show floating non-blocking unmute button if stream has audio tracks
-      const hasAudio = remoteStream.getAudioTracks().length > 0;
-      const unmuteBtn = document.getElementById('unmuteAudioBtn');
-      if (unmuteBtn && hasAudio) {
-        unmuteBtn.classList.remove('hidden');
-      }
-
-      document.getElementById('listenerTuneBtn').classList.add('hidden');
-      document.getElementById('listenerLeaveBtn').classList.remove('hidden');
-      document.getElementById('listenerLeaveBtn').classList.add('flex');
-      document.getElementById('listenerChatInput').disabled = false;
-      document.getElementById('listenerSendBtn').disabled = false;
-      document.getElementById('viewerStatusPill').classList.remove('hidden');
-      document.getElementById('viewerStatusPill').classList.add('inline-flex');
-    }
-
-    function unmuteRemoteVideo() {
-      const videoEl = document.getElementById('remoteVideoSink');
+    function unmuteAudienceAudio() {
+      const videoEl = document.getElementById('remoteAudienceVideo');
       videoEl.muted = false;
-      videoEl.volume = parseFloat(document.getElementById('listenerVolumeSlider').value);
-      const unmuteBtn = document.getElementById('unmuteAudioBtn');
-      if (unmuteBtn) unmuteBtn.classList.add('hidden');
-      const icon = document.getElementById('viewerVolIcon');
+      videoEl.volume = parseFloat(document.getElementById('audienceVolumeSlider').value);
+
+      document.getElementById('unmutePillBtn').classList.add('hidden');
+      const icon = document.getElementById('audienceVolIcon');
       if (icon) icon.setAttribute('data-lucide', 'volume-2');
       lucide.createIcons();
     }
 
-    function toggleViewerMute() {
-      const videoEl = document.getElementById('remoteVideoSink');
-      const icon = document.getElementById('viewerVolIcon');
+    function toggleAudienceMute() {
+      const videoEl = document.getElementById('remoteAudienceVideo');
+      const icon = document.getElementById('audienceVolIcon');
       if (videoEl.muted) {
         videoEl.muted = false;
         icon.setAttribute('data-lucide', 'volume-2');
@@ -1287,30 +1385,26 @@
       lucide.createIcons();
     }
 
-    function adjustViewerVolume(val) {
-      const videoEl = document.getElementById('remoteVideoSink');
+    function setAudienceVolume(val) {
+      const videoEl = document.getElementById('remoteAudienceVideo');
       videoEl.volume = parseFloat(val);
       videoEl.muted = false;
-      const icon = document.getElementById('viewerVolIcon');
+      const icon = document.getElementById('audienceVolIcon');
       icon.setAttribute('data-lucide', 'volume-2');
       lucide.createIcons();
     }
 
-    async function requestPictureInPicture() {
-      const videoEl = document.getElementById('remoteVideoSink');
+    async function requestPiP() {
+      const videoEl = document.getElementById('remoteAudienceVideo');
       if (document.pictureInPictureElement) {
         document.exitPictureInPicture();
       } else if (document.pictureInPictureEnabled && videoEl) {
-        try {
-          await videoEl.requestPictureInPicture();
-        } catch (e) {
-          console.warn('PiP not available', e);
-        }
+        try { await videoEl.requestPictureInPicture(); } catch(e){}
       }
     }
 
-    function toggleViewerFullscreen() {
-      const videoEl = document.getElementById('remoteVideoSink');
+    function requestViewerFullscreen() {
+      const videoEl = document.getElementById('remoteAudienceVideo');
       if (!document.fullscreenElement) {
         videoEl.requestFullscreen().catch(err => console.error(err));
       } else {
@@ -1318,479 +1412,177 @@
       }
     }
 
-    /**
-     * Hardware Source Initialization & Strict 1080p FHD Media Pipeline
-     */
-    async function startBroadcasterMediaPipeline() {
-      // Force disable SMPTE test mode so real live camera takes priority
-      state.isTestCardActive = false;
-      if (state.synthOsc) {
-        try { state.synthOsc.stop(); } catch(e){}
-        state.synthOsc = null;
-      }
-      if (state.testCardAnimId) {
-        cancelAnimationFrame(state.testCardAnimId);
-        state.testCardAnimId = null;
-      }
-      const virtualBtn = document.getElementById('virtualCardBtn');
-      if (virtualBtn) virtualBtn.classList.remove('bg-violet-700', 'text-white');
-      const virtualLabel = document.getElementById('virtualCardLabel');
-      if (virtualLabel) virtualLabel.textContent = 'SMPTE 1080p Test';
+    function handleChatSubmit(e, role) {
+      e.preventDefault();
+      const input = role === 'host' ? document.getElementById('hostChatInput') : document.getElementById('audienceChatInput');
+      const text = input.value.trim();
+      if (!text) return;
 
-      const videoDeviceId = document.getElementById('videoSourceSelect').value;
-      const audioDeviceId = document.getElementById('audioSourceSelect').value;
-      const noiseSuppression = document.getElementById('noiseFilterCheck').checked;
+      const senderName = role === 'host' ? 'Host 🎥' : `Viewer-${appState.audiencePeerId.substring(7)}`;
 
-      // Request Full HD 1080p (1920x1080) with resilient ideal constraints (no hard min limits to avoid OverconstrainedError)
-      const constraints = {
-        video: {
-          deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          aspectRatio: { ideal: 1.7777777778 }
-        },
-        audio: {
-          deviceId: audioDeviceId ? { exact: audioDeviceId } : undefined,
-          echoCancellation: true,
-          noiseSuppression: noiseSuppression,
-          autoGainControl: true,
-          sampleRate: 48000
-        }
-      };
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        state.mediaStream = stream;
-
-        // Route video to local hidden element for 1080p canvas composition
-        const hiddenVideo = document.getElementById('broadcasterHiddenVideo');
-        hiddenVideo.srcObject = stream;
-        await hiddenVideo.play();
-
-        // Web Audio Preamp & Processing DSP
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!state.audioCtx) {
-          state.audioCtx = new AudioContext({ sampleRate: 48000 });
-        }
-        if (state.audioCtx.state === 'suspended') {
-          await state.audioCtx.resume();
-        }
-
-        state.sourceNode = state.audioCtx.createMediaStreamSource(stream);
-        state.gainNode = state.audioCtx.createGain();
-        state.gainNode.gain.value = parseFloat(document.getElementById('micGainSlider').value);
-
-        state.analyserNode = state.audioCtx.createAnalyser();
-        state.analyserNode.fftSize = 128;
-
-        const dest = state.audioCtx.createMediaStreamDestination();
-        state.sourceNode.connect(state.gainNode);
-        state.gainNode.connect(state.analyserNode);
-        state.gainNode.connect(dest);
-
-        state.broadcastAudioStream = dest.stream;
-
-        document.getElementById('activeSourceBadge').textContent = 'Source: Camera 1080p FHD';
-        document.getElementById('videoDisabledPlaceholder').classList.add('hidden');
-        return true;
-      } catch (err) {
-        console.warn('Camera capture error:', err);
-        appendChatMessage('system', `Camera unavailable: ${err.message}. Starting 1080p SMPTE Test Pattern instead.`, 'broadcaster');
-        startVirtualSmptePipeline();
-        return true;
-      }
-    }
-
-    /**
-     * Virtual 1080p Full HD SMPTE Test Pattern & Synth Audio Generator
-     */
-    function startVirtualSmptePipeline() {
-      state.isTestCardActive = true;
-      document.getElementById('virtualCardBtn').classList.add('bg-violet-700', 'text-white');
-      document.getElementById('virtualCardLabel').textContent = 'Stop SMPTE';
-      document.getElementById('activeSourceBadge').textContent = 'Source: 1080p SMPTE Bars';
-      document.getElementById('videoDisabledPlaceholder').classList.add('hidden');
-
-      // Synthesizer Audio Tone Generator (Concert A 440Hz reference tone)
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!state.audioCtx) {
-        state.audioCtx = new AudioContext({ sampleRate: 48000 });
-      }
-      if (state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume().catch(() => {});
-      }
-
-      const dest = state.audioCtx.createMediaStreamDestination();
-      const osc = state.audioCtx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(440, state.audioCtx.currentTime);
-
-      const gain = state.audioCtx.createGain();
-      gain.gain.setValueAtTime(0.08, state.audioCtx.currentTime);
-
-      // Pulse modulation
-      const lfo = state.audioCtx.createOscillator();
-      lfo.frequency.setValueAtTime(1, state.audioCtx.currentTime);
-      const lfoGain = state.audioCtx.createGain();
-      lfoGain.gain.setValueAtTime(0.06, state.audioCtx.currentTime);
-      lfo.connect(lfoGain.gain);
-
-      osc.connect(gain);
-      gain.connect(dest);
-
-      osc.start();
-      lfo.start();
-
-      state.synthOsc = osc;
-      state.synthGain = gain;
-      state.broadcastAudioStream = dest.stream;
-
-      // Start 1920x1080 SMPTE Canvas Render Loop
-      renderSmptePatternLoop();
-      return true;
-    }
-
-    function renderSmptePatternLoop() {
-      const vCanvas = document.getElementById('virtualSmpteCanvas');
-      const ctx = vCanvas.getContext('2d');
-      const w = 1920;
-      const h = 1080;
-
-      const smpteColors = ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'];
-
-      function draw() {
-        if (!state.isTestCardActive) return;
-        state.testCardAnimId = requestAnimationFrame(draw);
-
-        // Standard 75% Top Color Bars
-        const barWidth = w / 7;
-        for (let i = 0; i < 7; i++) {
-          ctx.fillStyle = smpteColors[i];
-          ctx.fillRect(i * barWidth, 0, barWidth, h * 0.7);
-        }
-
-        // Middle Transition Bars
-        const midColors = ['#0000c0', '#131313', '#c000c0', '#131313', '#00c0c0', '#131313', '#c0c0c0'];
-        for (let i = 0; i < 7; i++) {
-          ctx.fillStyle = midColors[i];
-          ctx.fillRect(i * barWidth, h * 0.7, barWidth, h * 0.08);
-        }
-
-        // Bottom Section
-        ctx.fillStyle = '#060913';
-        ctx.fillRect(0, h * 0.78, w, h * 0.22);
-
-        // Center Sweep Dial / Time Code (1080p scale)
-        ctx.fillStyle = '#06b6d4';
-        ctx.font = 'bold 44px monospace';
-        ctx.textAlign = 'center';
-        const now = new Date();
-        ctx.fillText(`WAVECAST 1080p FHD SMPTE • ${now.toTimeString().split(' ')[0]}`, w / 2, h * 0.88);
-
-        // Moving tick bar for visual latency inspection
-        const tickX = (Date.now() / 3) % w;
-        ctx.fillStyle = '#f43f5e';
-        ctx.fillRect(tickX, h * 0.76, 60, 22);
-      }
-
-      draw();
-    }
-
-    function toggleVirtualTestCard() {
-      if (!state.isTestCardActive) {
-        startVirtualSmptePipeline();
-        if (!state.isBroadcasting) {
-          toggleBroadcast();
-        } else {
-          hotSwapStreamTracks();
-        }
-      } else {
-        stopVirtualTestCard();
-      }
-    }
-
-    function stopVirtualTestCard() {
-      state.isTestCardActive = false;
-      document.getElementById('virtualCardBtn').classList.remove('bg-violet-700', 'text-white');
-      document.getElementById('virtualCardLabel').textContent = 'SMPTE 1080p Test';
-      if (state.synthOsc) {
-        try { state.synthOsc.stop(); } catch(e){}
-        state.synthOsc = null;
-      }
-      cancelAnimationFrame(state.testCardAnimId);
-      startBroadcasterMediaPipeline().then(() => {
-        if (state.isBroadcasting) hotSwapStreamTracks();
-      });
-    }
-
-    /**
-     * Master Video Composition Canvas (Strict 1920x1080 @ 16:9)
-     * Features watchdog timer to prevent browser throttling when switching tabs.
-     */
-    function initBroadcasterCanvasLoop() {
-      const canvas = document.getElementById('broadcasterMasterCanvas');
-      const ctx = canvas.getContext('2d');
-      const hiddenVideo = document.getElementById('broadcasterHiddenVideo');
-      const vCanvas = document.getElementById('virtualSmpteCanvas');
-
-      const W = 1920;
-      const H = 1080;
-
-      function renderFrame(time) {
-        state.lastDrawTime = time;
-
-        // Calculate FPS
-        state.fpsCounter++;
-        if (time - state.fpsLastTime >= 1000) {
-          state.fpsCurrent = state.fpsCounter;
-          state.fpsCounter = 0;
-          state.fpsLastTime = time;
-          const fpsEl = document.getElementById('monitorFps');
-          if (fpsEl) fpsEl.textContent = `${state.fpsCurrent} FPS`;
-        }
-
-        // Clean Canvas Base
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, W, H);
-
-        // Render Active Source
-        if (state.isTestCardActive) {
-          ctx.drawImage(vCanvas, 0, 0, W, H);
-        } else if (state.isCameraEnabled && hiddenVideo.readyState >= 2) {
-          const vw = hiddenVideo.videoWidth || W;
-          const vh = hiddenVideo.videoHeight || H;
-
-          const videoRatio = vw / vh;
-          const targetRatio = W / H;
-
-          let drawW = W;
-          let drawH = H;
-          let offX = 0;
-          let offY = 0;
-
-          // Strict letterbox/pillarbox math - preserves crisp Full HD ratio without stretch
-          if (videoRatio > targetRatio) {
-            drawW = W;
-            drawH = W / videoRatio;
-            offY = (H - drawH) / 2;
-          } else {
-            drawH = H;
-            drawW = H * videoRatio;
-            offX = (W - drawW) / 2;
-          }
-
-          ctx.save();
-          if (state.isMirrored) {
-            ctx.translate(W, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(hiddenVideo, offX, offY, drawW, drawH);
-          } else {
-            ctx.drawImage(hiddenVideo, offX, offY, drawW, drawH);
-          }
-          ctx.restore();
-        } else {
-          ctx.fillStyle = '#030712';
-          ctx.fillRect(0, 0, W, H);
-        }
-
-        // Render Lower-Third Graphic if enabled
-        if (state.showLowerThird) {
-          ctx.save();
-          const boxX = 60;
-          const boxY = H - 170;
-          const boxW = 760;
-          const boxH = 110;
-
-          ctx.fillStyle = 'rgba(3, 7, 18, 0.92)';
-          ctx.strokeStyle = 'rgba(6, 182, 212, 0.85)';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.roundRect(boxX, boxY, boxW, boxH, 20);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#06b6d4';
-          ctx.fillRect(boxX + 22, boxY + 20, 8, boxH - 40);
-
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 30px Inter, system-ui, sans-serif';
-          ctx.fillText(state.lowerThirdTitle.toUpperCase(), boxX + 48, boxY + 50);
-
-          ctx.fillStyle = '#06b6d4';
-          ctx.font = '500 20px JetBrains Mono, monospace';
-          ctx.fillText(state.lowerThirdSub, boxX + 48, boxY + 84);
-
-          ctx.restore();
-        }
-      }
-
-      function rAfLoop(time) {
-        requestAnimationFrame(rAfLoop);
-        renderFrame(time);
-      }
-      requestAnimationFrame(rAfLoop);
-
-      // Watchdog ticker: ensures frames are rendered even when tab is backgrounded
-      setInterval(() => {
-        const now = performance.now();
-        if (now - state.lastDrawTime > 45) {
-          renderFrame(now);
-        }
-      }, 33);
-    }
-
-    /**
-     * Broadcast On-Air Management
-     */
-    async function toggleBroadcast() {
-      if (!state.isBroadcasting) {
-        // If user was previously running SMPTE test card, stop it when going live with camera
-        if (state.isTestCardActive) {
-          stopVirtualTestCard();
-        }
-
-        const ready = await startBroadcasterMediaPipeline();
-        if (!ready) return;
-
-        const masterCanvas = document.getElementById('broadcasterMasterCanvas');
-        state.canvasStream = masterCanvas.captureStream(30);
-
-        if (state.broadcastAudioStream && state.broadcastAudioStream.getAudioTracks().length > 0) {
-          const audioTrack = state.broadcastAudioStream.getAudioTracks()[0];
-          state.canvasStream.addTrack(audioTrack);
-        }
-
-        state.isBroadcasting = true;
-        document.getElementById('broadcastBtnLabel').textContent = 'End Broadcast';
-        document.getElementById('toggleBroadcastBtn').classList.replace('bg-rose-600', 'bg-slate-700');
-        document.getElementById('hostOnAirBadge').classList.replace('hidden', 'inline-flex');
-        document.getElementById('hostStandbyBadge').classList.add('hidden');
-        document.getElementById('recordStreamBtn').disabled = false;
-
-        sendSignal({
-          type: 'stream-status',
-          senderId: state.broadcasterId,
-          status: 'live'
-        });
-
-        appendChatMessage('system', `Station "${state.staticRoomId}" is now LIVE ON AIR in 1080p FHD!`, 'broadcaster');
-      } else {
-        stopBroadcasting();
-      }
-    }
-
-    function stopBroadcasting() {
-      state.isBroadcasting = false;
-
-      if (state.isRecording) toggleStreamRecording();
-      if (state.isTestCardActive) stopVirtualTestCard();
-
-      if (state.mediaStream) {
-        state.mediaStream.getTracks().forEach(t => t.stop());
-        state.mediaStream = null;
-      }
-
-      document.getElementById('broadcastBtnLabel').textContent = 'Go Live';
-      document.getElementById('toggleBroadcastBtn').classList.replace('bg-slate-700', 'bg-rose-600');
-      document.getElementById('hostOnAirBadge').classList.replace('inline-flex', 'hidden');
-      document.getElementById('hostStandbyBadge').classList.remove('hidden');
-      document.getElementById('recordStreamBtn').disabled = true;
-
+      appendChatMessage(senderName, text, role);
       sendSignal({
-        type: 'stream-status',
-        senderId: state.broadcasterId,
-        status: 'standby'
+        type: 'chat',
+        sender: senderName,
+        text,
+        role
       });
 
-      appendChatMessage('system', 'Broadcast stopped. Station is now in standby.', 'broadcaster');
+      input.value = '';
     }
 
-    function hotSwapStreamTracks() {
-      if (!state.canvasStream) return;
-      const newVideoTrack = state.canvasStream.getVideoTracks()[0];
-      const newAudioTrack = state.broadcastAudioStream ? state.broadcastAudioStream.getAudioTracks()[0] : null;
+    function appendChatMessage(sender, text, role) {
+      const hostBox = document.getElementById('hostChatBox');
+      const audienceBox = document.getElementById('audienceChatBox');
 
-      state.audience.forEach(({ pc }) => {
-        if (!pc) return;
-        const senders = pc.getSenders();
+      const isHostSender = sender.includes('Host');
+      const msgNode = document.createElement('div');
+      msgNode.className = `p-2.5 rounded-xl border text-xs max-w-[88%] ${
+        isHostSender
+          ? 'ml-auto bg-cyan-950/70 border-cyan-800 text-cyan-100'
+          : 'mr-auto bg-studio-800 border-studio-700 text-slate-200'
+      }`;
 
-        senders.forEach(sender => {
-          if (sender.track && sender.track.kind === 'video' && newVideoTrack) {
-            sender.replaceTrack(newVideoTrack).catch(e => console.warn(e));
-          }
-          if (sender.track && sender.track.kind === 'audio' && newAudioTrack) {
-            sender.replaceTrack(newAudioTrack).catch(e => console.warn(e));
-          }
-        });
-      });
-    }
+      const meta = document.createElement('div');
+      meta.className = 'text-[10px] font-mono font-bold text-slate-400 mb-0.5 flex items-center justify-between gap-2';
+      meta.innerHTML = `<span>${sender}</span> <span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
+      msgNode.appendChild(meta);
 
-    async function toggleScreenShare() {
-      if (!state.isScreenSharing) {
-        try {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              aspectRatio: 1.7777777778,
-              cursor: 'always',
-              frameRate: 30
-            },
-            audio: true
-          });
+      const body = document.createElement('div');
+      body.className = 'break-words';
+      body.textContent = text;
+      msgNode.appendChild(body);
 
-          state.isScreenSharing = true;
-          const hiddenVideo = document.getElementById('broadcasterHiddenVideo');
-          hiddenVideo.srcObject = displayStream;
-          await hiddenVideo.play();
-
-          document.getElementById('screenShareLabel').textContent = 'Stop Sharing';
-          document.getElementById('screenShareBtn').classList.add('bg-cyan-950/80', 'border-cyan-500');
-          document.getElementById('activeSourceBadge').textContent = 'Source: Screen Share (1080p)';
-
-          displayStream.getVideoTracks()[0].onended = () => {
-            toggleScreenShare();
-          };
-        } catch (err) {
-          console.warn('Screen share cancelled:', err);
-        }
-      } else {
-        state.isScreenSharing = false;
-        document.getElementById('screenShareLabel').textContent = 'Share Screen';
-        document.getElementById('screenShareBtn').classList.remove('bg-cyan-950/80', 'border-cyan-500');
-        await startBroadcasterMediaPipeline();
+      if (hostBox) {
+        hostBox.appendChild(msgNode.cloneNode(true));
+        hostBox.scrollTop = hostBox.scrollHeight;
+      }
+      if (audienceBox) {
+        audienceBox.appendChild(msgNode);
+        audienceBox.scrollTop = audienceBox.scrollHeight;
       }
     }
 
-    function toggleVideoTrack() {
-      state.isCameraEnabled = !state.isCameraEnabled;
-      const icon = document.getElementById('cameraIcon');
-      const placeholder = document.getElementById('videoDisabledPlaceholder');
+    function appendSystemMessage(text, targetRole) {
+      const box = targetRole === 'host' ? document.getElementById('hostChatBox') : document.getElementById('audienceChatBox');
+      if (!box) return;
 
-      if (!state.isCameraEnabled) {
+      const sys = document.createElement('div');
+      sys.className = 'p-2 rounded-xl bg-studio-950/90 border border-studio-800 text-slate-400 italic text-center text-[11px] w-full';
+      sys.textContent = text;
+      box.appendChild(sys);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function dispatchReaction(emoji) {
+      renderFloatingReaction(emoji);
+      sendSignal({
+        type: 'reaction',
+        emoji
+      });
+    }
+
+    function renderFloatingReaction(emoji) {
+      const surface = document.getElementById('reactionSurface');
+      const el = document.createElement('div');
+      el.className = 'floating-emoji text-3xl sm:text-4xl select-none';
+      el.textContent = emoji;
+
+      const randX = Math.random() * 80 + 10;
+      el.style.left = `${randX}%`;
+      el.style.bottom = '12%';
+      surface.appendChild(el);
+
+      setTimeout(() => el.remove(), 2200);
+
+      if (['🚀', '🔥', '🎉'].includes(emoji)) {
+        confetti({
+          particleCount: 16,
+          spread: 45,
+          origin: { y: 0.85, x: randX / 100 }
+        });
+      }
+    }
+
+    function setActiveViewMode(mode) {
+      appState.activeView = mode;
+
+      const bSec = document.getElementById('broadcasterSection');
+      const aSec = document.getElementById('audienceSection');
+
+      const tabB = document.getElementById('viewTabBroadcaster');
+      const tabA = document.getElementById('viewTabAudience');
+      const tabS = document.getElementById('viewTabSplit');
+
+      [tabB, tabA, tabS].forEach(t => t.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-white');
+
+      if (mode === 'broadcaster') {
+        bSec.classList.remove('hidden');
+        aSec.classList.add('hidden');
+        tabB.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow';
+      } else if (mode === 'audience') {
+        bSec.classList.add('hidden');
+        aSec.classList.remove('hidden');
+        tabA.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow';
+      } else if (mode === 'split') {
+        // Show BOTH sections side-by-side or stacked for instant loopback testing
+        bSec.classList.remove('hidden');
+        aSec.classList.remove('hidden');
+        tabS.className = 'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow';
+      }
+    }
+
+    function updateHostViewerRoster() {
+      const container = document.getElementById('hostViewerList');
+      const badge = document.getElementById('hostViewerCountBadge');
+      const count = appState.connectedViewers.size;
+
+      badge.textContent = `${count} ${count === 1 ? 'Viewer' : 'Viewers'}`;
+
+      if (count === 0) {
+        container.innerHTML = `
+          <div class="py-3 text-center text-slate-500 text-xs">
+            No viewers tuned in yet. Click "Split View" above or open in another window to test live audience reception!
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      appState.connectedViewers.forEach((record, peerId) => {
+        const item = document.createElement('div');
+        item.className = 'py-2 flex items-center justify-between font-mono text-xs';
+        item.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-slate-300">${peerId.substring(0, 16)}</span>
+            <span class="text-[10px] text-cyan-400 bg-studio-950 px-1.5 py-0.5 rounded border border-studio-800">&lt; 5ms</span>
+          </div>
+          <span class="text-[10px] text-emerald-400 font-bold uppercase">1080p FHD</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function toggleCameraMute() {
+      appState.isCameraMuted = !appState.isCameraMuted;
+      const icon = document.getElementById('muteCamIcon');
+      if (appState.isCameraMuted) {
         icon.setAttribute('data-lucide', 'video-off');
         icon.className = 'w-4 h-4 text-rose-400';
-        placeholder.classList.remove('hidden');
       } else {
         icon.setAttribute('data-lucide', 'video');
         icon.className = 'w-4 h-4 text-emerald-400';
-        placeholder.classList.add('hidden');
       }
       lucide.createIcons();
     }
 
-    function toggleAudioTrack() {
-      state.isAudioMuted = !state.isAudioMuted;
-      const icon = document.getElementById('micIcon');
-
-      if (state.broadcastAudioStream) {
-        state.broadcastAudioStream.getAudioTracks().forEach(t => t.enabled = !state.isAudioMuted);
+    function toggleAudioMute() {
+      appState.isAudioMuted = !appState.isAudioMuted;
+      if (appState.broadcastAudioTrack) {
+        appState.broadcastAudioTrack.enabled = !appState.isAudioMuted;
       }
-      if (state.mediaStream) {
-        state.mediaStream.getAudioTracks().forEach(t => t.enabled = !state.isAudioMuted);
-      }
-
-      if (state.isAudioMuted) {
+      const icon = document.getElementById('muteMicIcon');
+      if (appState.isAudioMuted) {
         icon.setAttribute('data-lucide', 'mic-off');
         icon.className = 'w-4 h-4 text-rose-400';
       } else {
@@ -1800,361 +1592,18 @@
       lucide.createIcons();
     }
 
-    function toggleVideoMirror() {
-      state.isMirrored = !state.isMirrored;
+    function toggleFlipHorizontal() {
+      appState.isMirrored = !appState.isMirrored;
     }
 
-    function setHostPreampGain(val) {
-      if (state.gainNode && state.audioCtx) {
-        state.gainNode.gain.setValueAtTime(parseFloat(val), state.audioCtx.currentTime);
-      }
-      document.getElementById('gainValBadge').textContent = `${parseFloat(val).toFixed(2)}x`;
+    function updateLowerThirdContent() {
+      appState.lowerThirdTitle = document.getElementById('lowerThirdTitleInput').value || 'WaveCast FHD Studio';
+      appState.lowerThirdSub = document.getElementById('lowerThirdSubInput').value || '1080p 16:9 Full HD Stream';
+      document.getElementById('lowerThirdDisplayTitle').textContent = appState.lowerThirdTitle;
+      document.getElementById('lowerThirdDisplaySub').textContent = appState.lowerThirdSub;
     }
 
-    function updateLowerThirdText() {
-      state.lowerThirdTitle = document.getElementById('customLowerTitle').value || 'WaveCast FHD Studio';
-      state.lowerThirdSub = document.getElementById('customLowerSub').value || '1080p 16:9 Full HD Stream';
-      document.getElementById('lowerThirdTitle').textContent = state.lowerThirdTitle;
-      document.getElementById('lowerThirdSub').textContent = state.lowerThirdSub;
-    }
-
-    function toggleLowerThirdVisibility(show) {
-      state.showLowerThird = show;
-      const el = document.getElementById('lowerThirdGraphic');
-      if (show) el.classList.remove('opacity-0');
-      else el.classList.add('opacity-0');
-    }
-
-    function setupDataChannelEvents(dc, peerId) {
-      dc.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          handleDataPayload(data);
-        } catch(e){}
-      };
-    }
-
-    function handleDataPayload(data) {
-      if (!data) return;
-      switch (data.type) {
-        case 'chat':
-          appendChatMessage(data.sender, data.text, state.activeTab);
-          break;
-        case 'reaction':
-          triggerReactionAnimation(data.emoji);
-          appendChatMessage(data.sender, `reacted ${data.emoji}`, state.activeTab, true);
-          break;
-      }
-    }
-
-    function pingAllViewers() {
-      const latencyStat = document.getElementById('statLatency');
-      if (latencyStat) latencyStat.textContent = '< 2 ms (Mesh P2P)';
-    }
-
-    function updateAudienceRoster() {
-      const container = document.getElementById('audienceRosterContainer');
-      const badge = document.getElementById('hostAudienceBadge');
-      const count = state.audience.size;
-
-      badge.textContent = `${count} ${count === 1 ? 'Viewer' : 'Viewers'}`;
-
-      if (count === 0) {
-        container.innerHTML = `
-          <div id="noViewersPlaceholder" class="py-6 text-center text-slate-500">
-            No audience members currently connected. Open in another tab or click Tune In to test loopback.
-          </div>`;
-        return;
-      }
-
-      container.innerHTML = '';
-      state.audience.forEach((client, peerId) => {
-        const item = document.createElement('div');
-        item.className = 'py-2 flex items-center justify-between font-mono';
-        item.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="text-slate-300">${peerId.substring(0, 16)}</span>
-            <span class="text-[10px] text-cyan-400 bg-studio-950 px-1.5 py-0.5 rounded border border-studio-800">${client.rttMs}</span>
-          </div>
-          <button onclick="kickViewer('${peerId}')" class="text-slate-500 hover:text-rose-400 p-1" title="Disconnect Viewer">
-            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          </button>
-        `;
-        container.appendChild(item);
-      });
-      lucide.createIcons();
-    }
-
-    function kickViewer(peerId) {
-      if (state.audience.has(peerId)) {
-        const entry = state.audience.get(peerId);
-        if (entry.pc) entry.pc.close();
-        state.audience.delete(peerId);
-        updateAudienceRoster();
-      }
-    }
-
-    /**
-     * Local 1080p Stream Recording (MediaRecorder WebM)
-     */
-    function toggleStreamRecording() {
-      if (!state.isRecording) {
-        startRecording();
-      } else {
-        stopRecording();
-      }
-    }
-
-    function startRecording() {
-      if (!state.canvasStream) return;
-      state.recordedChunks = [];
-
-      try {
-        state.mediaRecorder = new MediaRecorder(state.canvasStream, {
-          mimeType: 'video/webm;codecs=vp8,opus',
-          videoBitsPerSecond: 4000000
-        });
-      } catch(e) {
-        state.mediaRecorder = new MediaRecorder(state.canvasStream);
-      }
-
-      state.mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) state.recordedChunks.push(e.data);
-      };
-
-      state.mediaRecorder.onstop = finalizeRecordedVideo;
-      state.mediaRecorder.start(1000);
-      state.isRecording = true;
-      state.recordingStartTime = Date.now();
-
-      document.getElementById('recordBtnLabel').textContent = 'Recording 1080p...';
-      document.getElementById('recDotIcon').classList.add('animate-pulse');
-      document.getElementById('recordStreamBtn').classList.add('bg-rose-950/60', 'border-rose-600');
-
-      state.recordingTimerInterval = setInterval(() => {
-        const diff = Math.floor((Date.now() - state.recordingStartTime) / 1000);
-        const mins = String(Math.floor(diff / 60)).padStart(2, '0');
-        const secs = String(diff % 60).padStart(2, '0');
-        document.getElementById('recordBtnLabel').textContent = `Rec (${mins}:${secs})`;
-      }, 1000);
-    }
-
-    function stopRecording() {
-      if (!state.mediaRecorder) return;
-      state.mediaRecorder.stop();
-      state.isRecording = false;
-      clearInterval(state.recordingTimerInterval);
-
-      document.getElementById('recordBtnLabel').textContent = 'Record 1080p WebM';
-      document.getElementById('recDotIcon').classList.remove('animate-pulse');
-      document.getElementById('recordStreamBtn').classList.remove('bg-rose-950/60', 'border-rose-600');
-    }
-
-    function finalizeRecordedVideo() {
-      const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
-      const videoUrl = URL.createObjectURL(blob);
-      const videoEl = document.getElementById('recordingPlaybackEl');
-      const downloadA = document.getElementById('downloadRecordingAnchor');
-      const card = document.getElementById('recordingResultCard');
-
-      videoEl.src = videoUrl;
-      downloadA.href = videoUrl;
-      downloadA.download = `wavecast-1080p-${state.staticRoomId}-${Date.now()}.webm`;
-
-      const diff = Math.floor((Date.now() - state.recordingStartTime) / 1000);
-      const mins = String(Math.floor(diff / 60)).padStart(2, '0');
-      const secs = String(diff % 60).padStart(2, '0');
-      document.getElementById('recordingTimerBadge').textContent = `${mins}:${secs}`;
-
-      card.classList.remove('hidden');
-      appendChatMessage('system', '1080p FHD video recorded and ready for download.', 'broadcaster');
-    }
-
-    /**
-     * Interactive Chat & Floating Reactions
-     */
-    function handleChatSubmit(event, fromRole) {
-      event.preventDefault();
-      const input = fromRole === 'broadcaster' ? document.getElementById('broadcasterChatInput') : document.getElementById('listenerChatInput');
-      const text = input.value.trim();
-      if (!text) return;
-
-      const sender = fromRole === 'broadcaster' ? 'Host 🎥' : `Viewer-${state.listenerId.substring(7)}`;
-
-      appendChatMessage(sender, text, fromRole);
-      sendSignal({
-        type: 'chat',
-        senderId: fromRole === 'broadcaster' ? state.broadcasterId : state.listenerId,
-        sender,
-        text
-      });
-
-      input.value = '';
-    }
-
-    function sendQuickReaction(emoji) {
-      triggerReactionAnimation(emoji);
-      const sender = state.activeTab === 'broadcaster' ? 'Host' : `Viewer-${state.listenerId.substring(7)}`;
-      appendChatMessage(sender, `reacted ${emoji}`, state.activeTab, true);
-
-      sendSignal({
-        type: 'reaction',
-        senderId: state.activeTab === 'broadcaster' ? state.broadcasterId : state.listenerId,
-        sender,
-        emoji
-      });
-    }
-
-    function triggerReactionAnimation(emoji) {
-      const field = document.getElementById('reactionField');
-      const el = document.createElement('div');
-      el.className = 'floating-reaction text-3xl sm:text-4xl select-none';
-      el.textContent = emoji;
-
-      const randX = Math.random() * 80 + 10;
-      el.style.left = `${randX}%`;
-      el.style.bottom = '12%';
-      field.appendChild(el);
-
-      setTimeout(() => el.remove(), 2200);
-
-      if (emoji === '🚀' || emoji === '🔥' || emoji === '🎉') {
-        confetti({
-          particleCount: 16,
-          spread: 45,
-          origin: { y: 0.85, x: randX / 100 }
-        });
-      }
-    }
-
-    function appendChatMessage(sender, text, contextRole, isReaction = false) {
-      const hostContainer = document.getElementById('hostChatContainer');
-      const listenerContainer = document.getElementById('listenerChatContainer');
-      const target = contextRole === 'broadcaster' ? hostContainer : listenerContainer;
-      if (!target) return;
-
-      const isSelf = sender.includes('Host') ? (state.activeTab === 'broadcaster') : (state.activeTab === 'listener');
-      const msg = document.createElement('div');
-      msg.className = `p-2.5 rounded-xl border text-xs max-w-[88%] ${
-        sender === 'system'
-          ? 'bg-studio-950/80 border-studio-800 text-slate-400 italic text-center w-full mx-auto'
-          : isSelf
-          ? 'ml-auto bg-cyan-950/70 border-cyan-800 text-cyan-100'
-          : 'mr-auto bg-studio-800 border-studio-700 text-slate-200'
-      }`;
-
-      if (sender !== 'system') {
-        const meta = document.createElement('div');
-        meta.className = 'text-[10px] font-mono font-bold text-slate-400 mb-0.5 flex items-center justify-between gap-2';
-        meta.innerHTML = `<span>${sender}</span> <span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
-        msg.appendChild(meta);
-      }
-
-      const body = document.createElement('div');
-      body.className = isReaction ? 'text-lg' : 'break-words';
-      body.textContent = text;
-      msg.appendChild(body);
-
-      target.appendChild(msg);
-      target.scrollTop = target.scrollHeight;
-    }
-
-    /**
-     * Navigation, Roles & Helpers
-     */
-    function switchRole(role) {
-      state.activeTab = role;
-      const bContainer = document.getElementById('broadcasterContainer');
-      const lContainer = document.getElementById('listenerContainer');
-      const tabB = document.getElementById('tabBroadcasterBtn');
-      const tabL = document.getElementById('tabListenerBtn');
-
-      if (role === 'broadcaster') {
-        bContainer.classList.remove('studio-bg-dock', 'studio-view-hidden');
-        bContainer.classList.add('grid');
-        lContainer.classList.add('studio-view-hidden');
-        lContainer.classList.remove('grid');
-
-        tabB.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
-        tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-slate-200';
-      } else {
-        // Keep Broadcaster in safe background dock so canvas.captureStream never halts
-        bContainer.classList.remove('grid');
-        bContainer.classList.add('studio-bg-dock');
-        lContainer.classList.remove('studio-view-hidden');
-        lContainer.classList.add('grid');
-
-        tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
-        tabB.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-slate-200';
-      }
-    }
-
-    function copyStationInviteLink() {
-      const baseUrl = window.location.origin + window.location.pathname;
-      const url = `${baseUrl}?room=${state.staticRoomId}#listener`;
-
-      const temp = document.createElement('input');
-      temp.value = url;
-      document.body.appendChild(temp);
-      temp.select();
-      document.execCommand('copy');
-      document.body.removeChild(temp);
-
-      appendChatMessage('system', `Permanent 1080p link copied: ${url}`, state.activeTab);
-    }
-
-    function evaluateUrlRouting() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isRoomSet = urlParams.get('room');
-      const isListenerHash = window.location.hash === '#listener';
-
-      if (isListenerHash || (isRoomSet && !window.location.hash.includes('broadcaster'))) {
-        switchRole('listener');
-        setTimeout(() => connectListenerToStation(), 300);
-      }
-    }
-
-    async function populateMediaDevices() {
-      try {
-        const vSelect = document.getElementById('videoSourceSelect');
-        const aSelect = document.getElementById('audioSourceSelect');
-        const devices = await navigator.mediaDevices.enumerateDevices();
-
-        vSelect.innerHTML = '<option value="">Default Camera</option>';
-        aSelect.innerHTML = '<option value="">Default Microphone</option>';
-
-        devices.forEach((d, idx) => {
-          const opt = document.createElement('option');
-          opt.value = d.deviceId;
-          if (d.kind === 'videoinput') {
-            opt.textContent = d.label || `Camera ${idx + 1} (FHD)`;
-            vSelect.appendChild(opt);
-          } else if (d.kind === 'audioinput') {
-            opt.textContent = d.label || `Microphone ${idx + 1}`;
-            aSelect.appendChild(opt);
-          }
-        });
-      } catch (err) {
-        console.warn('Enumerate media note:', err);
-      }
-    }
-
-    function updatePeerStatusBadge(status, text) {
-      const dot = document.getElementById('peerDot');
-      const label = document.getElementById('peerStatusLabel');
-      if (label) label.textContent = text;
-
-      if (status === 'online') {
-        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-      } else if (status === 'connecting') {
-        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
-      } else {
-        dot.className = 'w-2 h-2 rounded-full bg-rose-500';
-      }
-    }
-
-    function toggleQuickHelp(show) {
+    function toggleHelpModal(show) {
       const modal = document.getElementById('helpModal');
       if (show) {
         modal.classList.remove('hidden');
@@ -2162,27 +1611,6 @@
       } else {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-      }
-    }
-
-    async function changeVideoInputDevice() {
-      if (state.isBroadcasting && !state.isScreenSharing) {
-        await startBroadcasterMediaPipeline();
-        hotSwapStreamTracks();
-      }
-    }
-
-    async function changeAudioInputDevice() {
-      if (state.isBroadcasting) {
-        await startBroadcasterMediaPipeline();
-        hotSwapStreamTracks();
-      }
-    }
-
-    async function renegotiateMediaConstraints() {
-      if (state.isBroadcasting) {
-        await startBroadcasterMediaPipeline();
-        hotSwapStreamTracks();
       }
     }
   </script>
