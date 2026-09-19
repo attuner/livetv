@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<html lang="en" class="h-full select-none">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DuoMeet - 1-on-1 Direct P2P Call & Screen Share</title>
-
-  <!-- Tailwind CSS -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudOS — Web Desktop</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- PeerJS for direct WebRTC P2P connection -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Identity Services & API Client -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
 
   <script>
     tailwind.config = {
@@ -19,13 +19,17 @@
         extend: {
           colors: {
             brand: {
-              400: '#818cf8',
+              50: '#eef2ff',
+              100: '#e0e7ff',
               500: '#6366f1',
               600: '#4f46e5',
               700: '#4338ca',
-            },
-            peerA: '#38bdf8',
-            peerB: '#a855f7',
+              900: '#312e81'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['Fira Code', 'Courier New', 'monospace']
           }
         }
       }
@@ -33,1286 +37,2158 @@
   </script>
 
   <style>
-    /* Custom scrollbar */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); }
-    ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.5); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.8); }
+    /* Custom UI Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
     
-    .video-mirror { transform: scaleX(-1); }
-    
-    /* Speaking animation glow */
-    .speaking-glow {
-      box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.7), 0 0 20px rgba(52, 211, 153, 0.4);
+    /* Acrylic Glass Effects */
+    .acrylic {
+      background: rgba(18, 24, 38, 0.72);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .acrylic-light {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+    .acrylic-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+    }
+
+    /* Window Resize Handles */
+    .resize-handle {
+      position: absolute;
+      z-index: 50;
+    }
+    .resize-right { top: 0; right: -4px; width: 8px; height: 100%; cursor: ew-resize; }
+    .resize-bottom { bottom: -4px; left: 0; width: 100%; height: 8px; cursor: ns-resize; }
+    .resize-corner { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: nwse-resize; }
+
+    /* Selection Box */
+    #selection-box {
+      border: 1px solid rgba(99, 102, 241, 0.7);
+      background-color: rgba(99, 102, 241, 0.18);
+      position: absolute;
+      pointer-events: none;
+      z-index: 10;
+      border-radius: 4px;
+    }
+
+    /* Pulse animation for sync */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.15); }
+    }
+    .sync-glow {
+      animation: pulseGlow 2s infinite ease-in-out;
     }
   </style>
 </head>
 
-<body class="h-full overflow-hidden font-sans antialiased bg-slate-950 text-slate-100 flex flex-col">
+<body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 font-sans relative antialiased selection:bg-indigo-500 selection:text-white">
 
-  <header class="h-14 border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between z-30 select-none">
-    <div class="flex items-center space-x-3">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/25">
-        <i data-lucide="users-2" class="w-4 h-4"></i>
-      </div>
-      <div class="flex items-baseline space-x-2">
-        <span class="font-bold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">DuoMeet</span>
-        <span class="text-[10px] uppercase font-bold tracking-wider text-brand-400 px-1.5 py-0.2 rounded bg-brand-500/10 border border-brand-500/20">1-on-1 P2P</span>
+  <div id="desktop-wallpaper" class="absolute inset-0 bg-cover bg-center transition-all duration-700 -z-10 brightness-[0.88]"
+       style="background-image: url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070&auto=format&fit=crop');">
+  </div>
+
+  <div id="desktop-area" class="relative w-full h-[calc(100%-48px)] overflow-hidden p-4" oncontextmenu="Desktop.openContextMenu(event); return false;">
+    
+    <!-- Desktop Icons Grid -->
+    <div id="desktop-icons-container" class="grid grid-flow-col grid-rows-6 gap-3 w-fit h-full content-start select-none">
+      <!-- Icons are dynamically populated by JS -->
+    </div>
+
+    <!-- Windows Workspace Canvas -->
+    <div id="windows-container" class="absolute inset-0 pointer-events-none z-20">
+      <!-- Window DOM nodes injected dynamically here -->
+    </div>
+
+    <!-- Marquee selection marquee rect -->
+    <div id="selection-box" class="hidden"></div>
+  </div>
+
+  <footer id="taskbar" class="absolute bottom-0 left-0 right-0 h-12 acrylic border-t border-white/10 z-50 flex items-center justify-between px-3">
+    <!-- Left: Start button & Pinned apps -->
+    <div class="flex items-center space-x-2 h-full">
+      <button id="start-btn" onclick="Desktop.toggleStartMenu()" class="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-white/10 active:scale-95 transition text-indigo-400 font-bold focus:outline-none">
+        <i data-lucide="layout-grid" class="w-5 h-5"></i>
+      </button>
+      
+      <!-- Quick Search Icon / Bar -->
+      <button onclick="Desktop.toggleStartMenu(true)" class="flex items-center space-x-2 px-3 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-slate-300 border border-white/5 transition">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
+        <span class="hidden sm:inline">Search Drive & apps...</span>
+      </button>
+
+      <div class="h-5 w-[1px] bg-white/15 mx-1 hidden sm:block"></div>
+
+      <!-- Pinned & Running Taskbar Icons -->
+      <div id="taskbar-apps" class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+        <!-- App task buttons dynamically injected -->
       </div>
     </div>
 
-    <!-- Active Call Header State -->
-    <div id="header-call-info" class="hidden items-center space-x-3">
-      <div class="flex items-center space-x-2 bg-slate-800/80 border border-slate-700/70 rounded-full px-3 py-1 text-xs">
-        <span id="conn-indicator-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        <span id="conn-indicator-text" class="text-slate-300 font-medium font-mono text-[11px]">Waiting for Peer...</span>
+    <!-- Right: System Tray (Drive Sync, Sound, Battery, Clock) -->
+    <div class="flex items-center space-x-2 h-full text-xs">
+      
+      <!-- Drive Storage Indicator Button -->
+      <button onclick="AppManager.launch('settings', { tab: 'drive' })" id="tray-drive-status" title="Google Drive Cloud Status" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg hover:bg-white/10 transition text-slate-200">
+        <i data-lucide="cloud" class="w-4 h-4 text-amber-400" id="tray-cloud-icon"></i>
+        <span id="tray-cloud-text" class="hidden md:inline text-[11px] font-medium text-amber-300">Drive: Virtual</span>
+      </button>
+
+      <!-- Network / WiFi Indicator -->
+      <div class="p-1.5 hover:bg-white/10 rounded-lg cursor-pointer transition" title="Connection: Online">
+        <i data-lucide="wifi" class="w-4 h-4 text-emerald-400"></i>
       </div>
 
-      <div class="flex items-center bg-slate-900/90 border border-slate-800 rounded-full px-3 py-1 text-xs">
-        <span class="text-slate-400 mr-1.5">Pair Code:</span>
-        <span id="header-pair-code" class="font-mono font-bold text-brand-400">---</span>
-        <button id="btn-copy-code" title="Copy 1-on-1 Invitation Link" class="ml-2 text-slate-400 hover:text-white transition p-0.5">
-          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+      <!-- Sound Control Popover trigger -->
+      <div class="relative">
+        <button onclick="Desktop.toggleTrayVolume()" class="p-1.5 hover:bg-white/10 rounded-lg transition" title="Volume Controls">
+          <i data-lucide="volume-2" class="w-4 h-4 text-slate-300"></i>
         </button>
+        <!-- Mini Volume slider popover -->
+        <div id="tray-volume-popover" class="hidden absolute bottom-12 right-0 p-3 acrylic rounded-xl shadow-2xl border border-white/10 w-44">
+          <p class="text-[11px] text-slate-300 mb-2 font-medium">Master Volume</p>
+          <input type="range" min="0" max="100" value="80" class="w-full accent-indigo-500 cursor-pointer h-1.5 bg-white/20 rounded-lg" oninput="SoundEngine.setVolume(this.value)">
+        </div>
       </div>
-    </div>
 
-    <!-- Device settings toggle -->
-    <div class="flex items-center space-x-2">
-      <button id="btn-open-settings" title="Device Settings" class="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition">
-        <i data-lucide="settings-2" class="w-4 h-4"></i>
+      <!-- Clock & Calendar Trigger -->
+      <button onclick="Desktop.toggleCalendar()" class="px-2 py-1 hover:bg-white/10 rounded-lg transition flex flex-col items-end leading-tight select-none">
+        <span id="tray-clock" class="font-semibold tracking-wide text-xs">12:00 PM</span>
+        <span id="tray-date" class="text-[10px] text-slate-400">2026-09-19</span>
+      </button>
+
+      <!-- Show Desktop Divider Bar -->
+      <div class="w-1.5 h-7 hover:bg-white/30 rounded-sm cursor-pointer ml-1" title="Show Desktop" onclick="WindowManager.minimizeAll()"></div>
+    </div>
+  </footer>
+
+  <div id="start-menu" class="hidden absolute bottom-14 left-3 w-96 acrylic rounded-2xl p-4 shadow-2xl border border-white/15 z-50 flex flex-col space-y-4">
+    <!-- User Profile Header -->
+    <div class="flex items-center justify-between pb-3 border-b border-white/10">
+      <div class="flex items-center space-x-3">
+        <div id="user-avatar-badge" class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-bold text-white shadow-md">
+          <i data-lucide="user" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h4 id="start-user-name" class="font-medium text-sm text-white leading-tight">Drive Cloud User</h4>
+          <p id="start-user-sub" class="text-[11px] text-slate-400">No local data saved</p>
+        </div>
+      </div>
+      <button onclick="DriveStorage.openAuthDialog()" class="px-2.5 py-1 text-[11px] rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-200 transition">
+        Sync Drive
       </button>
     </div>
-  </header>
 
-  <main class="flex-1 relative overflow-hidden flex flex-row">
+    <!-- Start Menu Search Input -->
+    <div class="relative">
+      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+      <input type="text" id="start-search-input" placeholder="Search apps, files, commands..." oninput="Desktop.filterStartApps(this.value)"
+             class="w-full bg-black/30 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
+    </div>
 
-    <!-- SCREEN 1: 1-on-1 LOBBY (PAIRING & PREVIEW) -->
-    <div id="view-lobby" class="w-full h-full flex items-center justify-center p-4 md:p-6 overflow-y-auto">
-      <div class="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center py-4">
-        
-        <!-- Left: Local Camera & Mic Preview -->
-        <div class="lg:col-span-6 flex flex-col items-center">
-          <div class="w-full aspect-video bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl flex items-center justify-center group">
-            <video id="preview-video" autoplay playsinline muted class="w-full h-full object-cover video-mirror"></video>
-            
-            <div id="preview-avatar" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10 hidden">
-              <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white text-xl font-bold shadow-lg">
-                <span id="preview-avatar-initials">YOU</span>
-              </div>
-              <p class="text-xs text-slate-400 mt-2">Camera is muted</p>
-            </div>
-
-            <!-- Pre-call Mic & Cam Toggles -->
-            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center space-x-2 bg-slate-950/80 backdrop-blur-md border border-slate-700/70 rounded-full px-3.5 py-1.5 z-20">
-              <button id="preview-btn-mic" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none" title="Toggle Microphone">
-                <i data-lucide="mic" class="w-4 h-4"></i>
-              </button>
-              <div class="w-14 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                <div id="preview-mic-bar" class="w-0 h-full bg-emerald-400 rounded-full transition-all duration-75"></div>
-              </div>
-              <button id="preview-btn-cam" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition focus:outline-none" title="Toggle Camera">
-                <i data-lucide="video" class="w-4 h-4"></i>
-              </button>
-            </div>
-          </div>
-          <p class="text-[11px] text-slate-500 mt-2">1-on-1 encrypted WebRTC audio, video & screen stream.</p>
-        </div>
-
-        <!-- Right: Role Selection & 1-on-1 Pair Connect -->
-        <div class="lg:col-span-6 bg-slate-900/80 border border-slate-800/90 p-6 md:p-7 rounded-2xl shadow-xl flex flex-col space-y-5">
-          <div>
-            <h1 class="text-xl font-bold text-white tracking-tight">Direct 1-on-1 Call</h1>
-            <p class="text-xs text-slate-400 mt-1">Connect strictly between two devices: User A creates the call, User B dials in.</p>
-          </div>
-
-          <!-- Display Name -->
-          <div class="space-y-1">
-            <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Your Name</label>
-            <div class="relative">
-              <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-              <input id="input-username" type="text" value="User A" placeholder="e.g., Alex" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" />
-            </div>
-          </div>
-
-          <!-- Mode Picker Tabs -->
-          <div class="grid grid-cols-2 gap-2 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
-            <button id="tab-host" class="py-2 text-xs font-semibold rounded-lg bg-brand-600 text-white shadow transition flex items-center justify-center space-x-1.5">
-              <i data-lucide="crown" class="w-3.5 h-3.5"></i>
-              <span>I am User A (Host)</span>
-            </button>
-            <button id="tab-join" class="py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition flex items-center justify-center space-x-1.5">
-              <i data-lucide="phone-incoming" class="w-3.5 h-3.5"></i>
-              <span>I am User B (Join)</span>
-            </button>
-          </div>
-
-          <!-- Panel A: User A Creates Session -->
-          <div id="panel-host" class="space-y-3">
-            <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-xs space-y-2">
-              <div class="flex items-center justify-between text-slate-400">
-                <span>Your 6-Digit Pair Code:</span>
-                <button id="btn-regen-code" class="text-brand-400 hover:text-brand-300 text-[11px] flex items-center space-x-1">
-                  <i data-lucide="refresh-cw" class="w-3 h-3"></i>
-                  <span>New Code</span>
-                </button>
-              </div>
-              <div class="font-mono text-xl font-bold tracking-widest text-emerald-400 text-center py-2 bg-slate-900 border border-slate-800/80 rounded-lg select-all" id="display-generated-code">
-                ------
-              </div>
-              <p class="text-[11px] text-slate-500 text-center">Share this code with User B. Once User B dials, the 1-on-1 call starts immediately.</p>
-            </div>
-
-            <button id="btn-start-host" class="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-brand-500/20 transition">
-              <i data-lucide="radio" class="w-4 h-4"></i>
-              <span>Open Room as User A</span>
-            </button>
-          </div>
-
-          <!-- Panel B: User B Joins Session -->
-          <div id="panel-join" class="space-y-3 hidden">
-            <div class="space-y-1">
-              <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Enter User A's 6-Digit Code</label>
-              <div class="relative">
-                <i data-lucide="hash" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                <input id="input-join-code" type="text" maxlength="6" placeholder="e.g. 482910" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2.5 text-sm font-mono font-bold uppercase tracking-widest text-emerald-400 focus:outline-none focus:border-brand-500" />
-              </div>
-            </div>
-
-            <button id="btn-start-join" class="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-purple-500/20 transition">
-              <i data-lucide="phone-call" class="w-4 h-4"></i>
-              <span>Dial User A (Start Call)</span>
-            </button>
-          </div>
-
-          <div id="lobby-error" class="text-xs text-rose-400 text-center min-h-[16px]"></div>
-        </div>
-
+    <!-- Pinned Applications Grid -->
+    <div>
+      <div class="flex justify-between items-center mb-2 text-xs text-slate-400 font-medium">
+        <span>Applications</span>
+        <span class="text-[10px] text-indigo-400">Google Drive Powered</span>
+      </div>
+      <div id="start-apps-grid" class="grid grid-cols-4 gap-2.5 max-h-56 overflow-y-auto pr-1">
+        <!-- App launchers populated by JS -->
       </div>
     </div>
 
-    <div id="view-call" class="hidden flex-1 relative flex flex-col h-full overflow-hidden bg-slate-950">
-      
-      <!-- Call Stage Workspace -->
-      <div id="call-workspace" class="flex-1 p-3 sm:p-4 relative overflow-hidden flex flex-col">
-        
-        <!-- Screen Share Presenter Spotlight (Hidden by default, shown when screen sharing is active) -->
-        <div id="screen-spotlight-box" class="flex-1 min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl mb-3 hidden">
-          <video id="spotlight-screen-video" autoplay playsinline class="w-full h-full object-contain bg-black"></video>
-          <div class="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-lg border border-slate-800 text-xs font-semibold text-white flex items-center space-x-2">
-            <span class="w-2 h-2 rounded-full bg-brand-400 animate-ping"></span>
-            <span id="spotlight-screen-label">Screen Share</span>
-          </div>
-          <button id="btn-spotlight-fullscreen" class="absolute top-3 right-3 p-1.5 rounded-lg bg-slate-950/80 text-slate-300 hover:text-white border border-slate-700">
-            <i data-lucide="maximize" class="w-4 h-4"></i>
-          </button>
+    <!-- Quick Storage Status Info -->
+    <div class="acrylic-card rounded-xl p-2.5 text-xs flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <i data-lucide="hard-drive" class="w-4 h-4 text-indigo-400"></i>
+        <div>
+          <span class="block text-[11px] text-slate-300 font-medium" id="start-drive-name">Google Drive Storage</span>
+          <span class="block text-[10px] text-slate-400" id="start-drive-status">Mode: Virtual RAM Cloud</span>
         </div>
-
-        <!-- 1-on-1 Dual Face Video Tiles Container -->
-        <div id="dual-camera-grid" class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 h-full min-h-0">
-          
-          <!-- Tile: LOCAL PEER -->
-          <div id="tile-local" class="relative bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex items-center justify-center transition-all">
-            <video id="video-local" autoplay playsinline muted class="w-full h-full object-cover video-mirror"></video>
-            
-            <!-- Video Muted Avatar -->
-            <div id="avatar-local" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10 hidden">
-              <div id="avatar-circle-local" class="w-20 h-20 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow-xl">
-                ME
-              </div>
-              <span id="label-avatar-local" class="text-xs text-slate-400 mt-2 font-medium">You</span>
-            </div>
-
-            <!-- Speaking Ring Border -->
-            <div id="speaking-border-local" class="absolute inset-0 rounded-2xl border-2 border-emerald-400 pointer-events-none opacity-0 transition-opacity duration-150 shadow-[inset_0_0_15px_rgba(52,211,153,0.3)]"></div>
-
-            <!-- Label Pill with Mic Status -->
-            <div class="absolute bottom-3 left-3 flex items-center space-x-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-medium text-white border border-slate-800 z-20">
-              <span id="label-role-badge-local" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-400 border border-brand-500/30">YOU</span>
-              <span id="label-name-local">Local Peer</span>
-              <span id="icon-local-mic" class="text-slate-400"><i data-lucide="mic" class="w-3.5 h-3.5"></i></span>
-            </div>
-          </div>
-
-          <!-- Tile: REMOTE PEER -->
-          <div id="tile-remote" class="relative bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex items-center justify-center transition-all">
-            <video id="video-remote" autoplay playsinline class="w-full h-full object-cover"></video>
-
-            <!-- Waiting / Disconnected / Muted Overlay for Remote -->
-            <div id="overlay-remote-waiting" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-10">
-              <div class="w-16 h-16 rounded-full border-2 border-brand-500/40 border-t-brand-400 animate-spin flex items-center justify-center mb-3"></div>
-              <p id="remote-waiting-text" class="text-sm font-semibold text-slate-300">Waiting for other peer...</p>
-              <p class="text-xs text-slate-500 mt-1">Direct end-to-end 1-on-1 pairing</p>
-            </div>
-
-            <div id="avatar-remote" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10 hidden">
-              <div id="avatar-circle-remote" class="w-20 h-20 rounded-full bg-gradient-to-tr from-purple-600 to-pink-600 flex items-center justify-center text-white text-2xl font-bold shadow-xl">
-                B
-              </div>
-              <span id="label-avatar-remote" class="text-xs text-slate-400 mt-2 font-medium">Remote Peer</span>
-            </div>
-
-            <!-- Speaking Ring Border Remote -->
-            <div id="speaking-border-remote" class="absolute inset-0 rounded-2xl border-2 border-emerald-400 pointer-events-none opacity-0 transition-opacity duration-150 shadow-[inset_0_0_15px_rgba(52,211,153,0.3)]"></div>
-
-            <!-- Label Pill Remote -->
-            <div class="absolute bottom-3 left-3 flex items-center space-x-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-medium text-white border border-slate-800 z-20">
-              <span id="label-role-badge-remote" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">PEER</span>
-              <span id="label-name-remote">Connecting...</span>
-              <span id="icon-remote-mic" class="text-slate-400"><i data-lucide="mic" class="w-3.5 h-3.5"></i></span>
-            </div>
-          </div>
-
-        </div>
-
       </div>
-
-      <footer class="h-20 bg-slate-900/90 border-t border-slate-800/80 px-4 flex items-center justify-between z-30 select-none">
-        
-        <!-- Left: Call Meta / Invite Link -->
-        <div class="hidden md:flex items-center space-x-3 w-1/4">
-          <button id="btn-invite-link" class="flex items-center space-x-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-xs font-medium text-slate-200 border border-slate-700/80 transition" title="Copy 1-on-1 direct URL">
-            <i data-lucide="link" class="w-3.5 h-3.5 text-brand-400"></i>
-            <span>Copy Join Link</span>
-          </button>
-        </div>
-
-        <!-- Center: Primary In-Call Media Buttons -->
-        <div class="flex items-center space-x-2.5 sm:space-x-3.5 mx-auto">
-          
-          <!-- Mic toggle -->
-          <button id="ctrl-mic" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition focus:outline-none" title="Toggle Mic (M)">
-            <i data-lucide="mic" class="w-5 h-5"></i>
-          </button>
-
-          <!-- Cam toggle -->
-          <button id="ctrl-cam" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition focus:outline-none" title="Toggle Video (V)">
-            <i data-lucide="video" class="w-5 h-5"></i>
-          </button>
-
-          <!-- Screen Share toggle -->
-          <button id="ctrl-screen" class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition focus:outline-none" title="Share Screen (S)">
-            <i data-lucide="monitor-up" class="w-5 h-5"></i>
-          </button>
-
-          <!-- Picture-in-Picture -->
-          <button id="ctrl-pip" class="hidden sm:flex w-12 h-12 rounded-2xl items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition focus:outline-none" title="Picture in Picture">
-            <i data-lucide="picture-in-picture-2" class="w-5 h-5"></i>
-          </button>
-
-          <!-- End Call -->
-          <button id="ctrl-end" class="w-12 sm:w-16 h-12 rounded-2xl flex items-center justify-center bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition focus:outline-none" title="Leave Call">
-            <i data-lucide="phone-off" class="w-5 h-5"></i>
-          </button>
-        </div>
-
-        <!-- Right: Chat Drawer Toggle -->
-        <div class="flex items-center justify-end space-x-2 w-1/4">
-          <button id="ctrl-chat-toggle" class="relative w-11 h-11 rounded-xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition" title="Open 1-on-1 Chat">
-            <i data-lucide="message-square" class="w-4 h-4"></i>
-            <span id="chat-badge" class="absolute -top-1 -right-1 bg-brand-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
-          </button>
-        </div>
-
-      </footer>
+      <button onclick="DriveStorage.syncRefresh()" class="p-1.5 hover:bg-white/10 rounded-lg text-slate-300" title="Refresh Drive Cache">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+      </button>
     </div>
 
-    <aside id="chat-panel" class="w-80 md:w-88 border-l border-slate-800 bg-slate-900/95 flex flex-col h-full absolute right-0 top-0 bottom-0 z-40 transition-transform transform translate-x-full duration-200 ease-in-out shadow-2xl">
-      <div class="h-14 border-b border-slate-800 px-4 flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="messages-square" class="w-4 h-4 text-brand-400"></i>
-          <span class="font-semibold text-xs text-slate-200 uppercase tracking-wider">Direct Chat</span>
-        </div>
-        <button id="btn-close-chat" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
+    <!-- Start Menu Bottom System Actions -->
+    <div class="flex justify-between items-center pt-2 border-t border-white/10 text-xs">
+      <button onclick="AppManager.launch('settings')" class="flex items-center space-x-1.5 px-3 py-1.5 hover:bg-white/10 rounded-lg text-slate-300 transition">
+        <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+        <span>Settings</span>
+      </button>
+      <button onclick="Desktop.openSessionControl()" class="flex items-center space-x-1.5 px-3 py-1.5 hover:bg-red-500/20 text-red-300 rounded-lg transition">
+        <i data-lucide="power" class="w-3.5 h-3.5"></i>
+        <span>Session</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Desktop Right-Click Context Menu -->
+  <div id="context-menu" class="hidden absolute acrylic rounded-xl shadow-2xl border border-white/15 py-1.5 w-52 text-xs z-50 divide-y divide-white/5">
+    <div class="py-1">
+      <button onclick="DriveStorage.createNewItemPrompt('folder'); Desktop.closeContextMenu();" class="flex items-center space-x-2.5 w-full px-3 py-1.5 hover:bg-white/10 text-left text-slate-200">
+        <i data-lucide="folder-plus" class="w-4 h-4 text-amber-400"></i>
+        <span>New Folder on Drive</span>
+      </button>
+      <button onclick="DriveStorage.createNewItemPrompt('file'); Desktop.closeContextMenu();" class="flex items-center space-x-2.5 w-full px-3 py-1.5 hover:bg-white/10 text-left text-slate-200">
+        <i data-lucide="file-plus" class="w-4 h-4 text-blue-400"></i>
+        <span>New Text Document</span>
+      </button>
+    </div>
+    <div class="py-1">
+      <button onclick="DriveStorage.syncRefresh(); Desktop.closeContextMenu();" class="flex items-center space-x-2.5 w-full px-3 py-1.5 hover:bg-white/10 text-left text-slate-200">
+        <i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i>
+        <span>Refresh Storage</span>
+      </button>
+      <button onclick="DriveStorage.triggerFileUpload(); Desktop.closeContextMenu();" class="flex items-center space-x-2.5 w-full px-3 py-1.5 hover:bg-white/10 text-left text-slate-200">
+        <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-400"></i>
+        <span>Upload File to Drive</span>
+      </button>
+    </div>
+    <div class="py-1">
+      <button onclick="AppManager.launch('settings', { tab: 'wallpapers' }); Desktop.closeContextMenu();" class="flex items-center space-x-2.5 w-full px-3 py-1.5 hover:bg-white/10 text-left text-slate-200">
+        <i data-lucide="image" class="w-4 h-4 text-purple-400"></i>
+        <span>Change Wallpaper</span>
+      </button>
+      <button onclick="AppManager.launch('terminal'); Desktop.closeContextMenu();" class="flex items-center space-x-2.5 w-full px-3 py-1.5 hover:bg-white/10 text-left text-slate-200">
+        <i data-lucide="terminal" class="w-4 h-4 text-slate-400"></i>
+        <span>Open Terminal Shell</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Calendar Tray Popover -->
+  <div id="calendar-popover" class="hidden absolute bottom-14 right-3 acrylic rounded-2xl p-4 shadow-2xl border border-white/15 w-72 z-50 text-xs">
+    <div class="flex items-center justify-between mb-3">
+      <h3 id="cal-month-year" class="font-semibold text-white">September 2026</h3>
+      <div class="flex space-x-1">
+        <button class="p-1 hover:bg-white/10 rounded" onclick="CalendarView.prevMonth()"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+        <button class="p-1 hover:bg-white/10 rounded" onclick="CalendarView.nextMonth()"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
       </div>
+    </div>
+    <div class="grid grid-cols-7 gap-1 text-center font-medium text-slate-400 text-[10px] mb-2">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div id="cal-grid" class="grid grid-cols-7 gap-1 text-center text-xs">
+      <!-- Calendar numbers rendered dynamically -->
+    </div>
+  </div>
 
-      <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-2.5 text-xs">
-        <div class="text-center py-4 text-slate-500 text-[11px]">
-          Direct end-to-end encrypted chat between User A & User B.
+  <!-- Notification Toast Center -->
+  <div id="notification-center" class="fixed top-5 right-5 z-[9999] flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Hidden Native File Input for Cloud Uploads -->
+  <input type="file" id="global-cloud-file-input" class="hidden" multiple onchange="DriveStorage.handleNativeFileInput(event)">
+
+  <!-- Hidden Custom Modal Container (Safe Alert replacement) -->
+  <div id="system-modal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="acrylic rounded-2xl p-5 max-w-md w-full border border-white/20 shadow-2xl transform transition-all scale-100">
+      <div class="flex items-center space-x-3 mb-3">
+        <div id="modal-icon-container" class="w-9 h-9 rounded-xl bg-indigo-600/30 flex items-center justify-center text-indigo-400 border border-indigo-500/30">
+          <i data-lucide="info" class="w-5 h-5"></i>
         </div>
+        <h3 id="modal-title" class="font-semibold text-white text-base">Notice</h3>
       </div>
-
-      <!-- Typing Indicator -->
-      <div id="chat-typing-indicator" class="px-4 py-1 text-[11px] text-slate-400 italic hidden">
-        Remote peer is typing...
+      <p id="modal-message" class="text-xs text-slate-300 mb-5 leading-relaxed">System Message Details</p>
+      <div id="modal-prompt-wrap" class="hidden mb-4">
+        <input type="text" id="modal-prompt-input" class="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
       </div>
-
-      <form id="chat-form" class="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center space-x-2">
-        <input id="chat-input" type="text" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500" />
-        <button type="submit" class="p-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white transition focus:outline-none">
-          <i data-lucide="send" class="w-4 h-4"></i>
-        </button>
-      </form>
-    </aside>
-
-  </main>
-
-  <div id="modal-settings" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 max-w-md w-full rounded-2xl p-6 space-y-4 shadow-2xl relative">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="sliders" class="w-4 h-4 text-brand-400"></i>
-          <h2 class="text-sm font-bold text-white uppercase tracking-wider">Device Settings</h2>
-        </div>
-        <button id="btn-close-settings" class="text-slate-400 hover:text-white p-1 rounded-lg">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <div class="space-y-1">
-          <label class="font-semibold text-slate-300">Microphone</label>
-          <select id="select-audio-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"></select>
-        </div>
-
-        <div class="space-y-1">
-          <label class="font-semibold text-slate-300">Camera</label>
-          <select id="select-video-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"></select>
-        </div>
-
-        <div class="space-y-1">
-          <label class="font-semibold text-slate-300">Speaker / Audio Output</label>
-          <select id="select-audio-output" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500"></select>
-        </div>
-      </div>
-
-      <div class="pt-3 border-t border-slate-800 flex justify-end">
-        <button id="btn-apply-settings" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs">
-          Apply Devices
-        </button>
+      <div class="flex justify-end space-x-2.5">
+        <button id="modal-cancel-btn" class="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-slate-300 transition">Cancel</button>
+        <button id="modal-confirm-btn" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white shadow-lg transition">Confirm</button>
       </div>
     </div>
   </div>
 
-  <div id="toast-container" class="fixed bottom-24 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
-
   <script>
-    /* 1-on-1 Dedicated State */
-    const appState = {
-      role: 'A', // 'A' (Host/Caller) or 'B' (Joiner)
-      pairCode: null,
-      username: 'User A',
-      remoteUsername: 'User B',
-      
-      peer: null,
-      peerId: null,
-      activeCall: null,
-      activeDataConn: null,
-      
-      localStream: null,
-      screenStream: null,
-      remoteStream: null,
-      
-      isScreenSharing: false,
-      isAudioMuted: false,
-      isVideoMuted: false,
-      
-      remoteAudioMuted: false,
-      remoteVideoMuted: false,
-      remoteScreenActive: false,
-      
-      localAudioContext: null,
-      localAnalyser: null,
-      remoteAnalyser: null,
-      
-      isChatOpen: false,
-      unreadChatCount: 0,
-      typingTimeout: null
+    /* CloudOS Sound Effects (ToneJS-less synthesized Web Audio API for zero latency and zero dependency) */
+    const SoundEngine = {
+      ctx: null,
+      volume: 0.8,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      },
+      setVolume(val) {
+        this.volume = val / 100;
+      },
+      playTone(freq, type = 'sine', duration = 0.08) {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(this.volume * 0.15, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          // Audio context safe fallback
+        }
+      },
+      click() { this.playTone(800, 'triangle', 0.04); },
+      open() { this.playTone(550, 'sine', 0.1); },
+      action() { this.playTone(1050, 'sine', 0.12); },
+      notify() {
+        this.playTone(520, 'sine', 0.08);
+        setTimeout(() => this.playTone(880, 'sine', 0.15), 90);
+      }
     };
 
-    /* Prefix helper to enforce unique room pairing namespace */
-    const PEER_PREFIX = 'duo-1on1-room-';
+    /* Notification Center */
+    const Notifications = {
+      show(title, message, type = 'info') {
+        SoundEngine.notify();
+        const container = document.getElementById('notification-center');
+        const toast = document.createElement('div');
+        toast.className = 'acrylic pointer-events-auto rounded-xl p-3 border border-white/15 shadow-2xl flex items-start space-x-3 w-80 transform translate-x-10 opacity-0 transition-all duration-300';
+        
+        let iconName = 'info';
+        let iconColor = 'text-indigo-400';
+        if (type === 'success') { iconName = 'check-circle-2'; iconColor = 'text-emerald-400'; }
+        if (type === 'warn') { iconName = 'alert-triangle'; iconColor = 'text-amber-400'; }
+        if (type === 'error') { iconName = 'alert-octagon'; iconColor = 'text-red-400'; }
 
-    /* DOM Selectors */
-    const viewLobby = document.getElementById('view-lobby');
-    const viewCall = document.getElementById('view-call');
-    const headerCallInfo = document.getElementById('header-call-info');
-    const headerPairCode = document.getElementById('header-pair-code');
-    const connIndicatorDot = document.getElementById('conn-indicator-dot');
-    const connIndicatorText = document.getElementById('conn-indicator-text');
+        toast.innerHTML = `
+          <div class="mt-0.5 ${iconColor} flex-shrink-0">
+            <i data-lucide="${iconName}" class="w-4 h-4"></i>
+          </div>
+          <div class="flex-1">
+            <h5 class="text-xs font-semibold text-white">${title}</h5>
+            <p class="text-[11px] text-slate-300 leading-snug">${message}</p>
+          </div>
+          <button class="text-slate-400 hover:text-white" onclick="this.parentElement.remove()">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+        container.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => {
+          toast.classList.remove('translate-x-10', 'opacity-0');
+        }, 10);
+        setTimeout(() => {
+          toast.classList.add('translate-x-10', 'opacity-0');
+          setTimeout(() => toast.remove(), 300);
+        }, 4500);
+      }
+    };
 
-    const previewVideo = document.getElementById('preview-video');
-    const previewAvatar = document.getElementById('preview-avatar');
-    const previewAvatarInitials = document.getElementById('preview-avatar-initials');
-    const previewBtnMic = document.getElementById('preview-btn-mic');
-    const previewBtnCam = document.getElementById('preview-btn-cam');
-    const previewMicBar = document.getElementById('preview-mic-bar');
+    /* Dialog Box Utility (No alert/confirm) */
+    const SystemDialog = {
+      show({ title, message, prompt = false, defaultValue = '', icon = 'info', onConfirm, onCancel }) {
+        const modal = document.getElementById('system-modal');
+        const titleEl = document.getElementById('modal-title');
+        const msgEl = document.getElementById('modal-message');
+        const promptWrap = document.getElementById('modal-prompt-wrap');
+        const promptInput = document.getElementById('modal-prompt-input');
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
 
-    const inputUsername = document.getElementById('input-username');
-    const tabHost = document.getElementById('tab-host');
-    const tabJoin = document.getElementById('tab-join');
-    const panelHost = document.getElementById('panel-host');
-    const panelJoin = document.getElementById('panel-join');
-    const displayGeneratedCode = document.getElementById('display-generated-code');
-    const btnRegenCode = document.getElementById('btn-regen-code');
-    const btnStartHost = document.getElementById('btn-start-host');
-    const inputJoinCode = document.getElementById('input-join-code');
-    const btnStartJoin = document.getElementById('btn-start-join');
-    const lobbyError = document.getElementById('lobby-error');
+        titleEl.textContent = title || 'Notice';
+        msgEl.textContent = message || '';
 
-    const videoLocal = document.getElementById('video-local');
-    const videoRemote = document.getElementById('video-remote');
-    const avatarLocal = document.getElementById('avatar-local');
-    const avatarRemote = document.getElementById('avatar-remote');
-    const overlayRemoteWaiting = document.getElementById('overlay-remote-waiting');
-    const remoteWaitingText = document.getElementById('remote-waiting-text');
-    const labelNameLocal = document.getElementById('label-name-local');
-    const labelNameRemote = document.getElementById('label-name-remote');
-    const labelRoleBadgeLocal = document.getElementById('label-role-badge-local');
-    const labelRoleBadgeRemote = document.getElementById('label-role-badge-remote');
-    const speakingBorderLocal = document.getElementById('speaking-border-local');
-    const speakingBorderRemote = document.getElementById('speaking-border-remote');
-    const iconLocalMic = document.getElementById('icon-local-mic');
-    const iconRemoteMic = document.getElementById('icon-remote-mic');
-
-    const screenSpotlightBox = document.getElementById('screen-spotlight-box');
-    const spotlightScreenVideo = document.getElementById('spotlight-screen-video');
-    const spotlightScreenLabel = document.getElementById('spotlight-screen-label');
-    const btnSpotlightFullscreen = document.getElementById('btn-spotlight-fullscreen');
-
-    const ctrlMic = document.getElementById('ctrl-mic');
-    const ctrlCam = document.getElementById('ctrl-cam');
-    const ctrlScreen = document.getElementById('ctrl-screen');
-    const ctrlPip = document.getElementById('ctrl-pip');
-    const ctrlEnd = document.getElementById('ctrl-end');
-    const ctrlChatToggle = document.getElementById('ctrl-chat-toggle');
-    const chatBadge = document.getElementById('chat-badge');
-    const chatPanel = document.getElementById('chat-panel');
-    const btnCloseChat = document.getElementById('btn-close-chat');
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    const chatMessagesContainer = document.getElementById('chat-messages-container');
-    const chatTypingIndicator = document.getElementById('chat-typing-indicator');
-
-    const btnInviteLink = document.getElementById('btn-invite-link');
-    const btnCopyCode = document.getElementById('btn-copy-code');
-    const modalSettings = document.getElementById('modal-settings');
-    const btnOpenSettings = document.getElementById('btn-open-settings');
-    const btnCloseSettings = document.getElementById('btn-close-settings');
-    const btnApplySettings = document.getElementById('btn-apply-settings');
-    const selectAudioInput = document.getElementById('select-audio-input');
-    const selectVideoInput = document.getElementById('select-video-input');
-    const selectAudioOutput = document.getElementById('select-audio-output');
-
-    function showToast(msg, type = 'info') {
-      const toast = document.createElement('div');
-      const bg = type === 'error' ? 'bg-rose-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-800 border border-slate-700';
-      toast.className = `${bg} text-white text-xs px-3.5 py-2.5 rounded-xl shadow-xl flex items-center space-x-2 transition-all transform translate-y-2 opacity-0 pointer-events-auto`;
-      toast.innerHTML = `<span>${msg}</span>`;
-      document.getElementById('toast-container').appendChild(toast);
-
-      requestAnimationFrame(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-      });
-
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-2');
-        setTimeout(() => toast.remove(), 250);
-      }, 3000);
-    }
-
-    // Audio synthesizer for incoming call / connection chime
-    function playChime(type = 'join') {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        if (type === 'join') {
-          osc.frequency.setValueAtTime(440, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
-          gain.gain.setValueAtTime(0.2, ctx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.5);
-        } else if (type === 'leave') {
-          osc.frequency.setValueAtTime(600, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.4);
-          gain.gain.setValueAtTime(0.2, ctx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.4);
+        if (prompt) {
+          promptWrap.classList.remove('hidden');
+          promptInput.value = defaultValue;
+          setTimeout(() => promptInput.focus(), 50);
+        } else {
+          promptWrap.classList.add('hidden');
         }
-      } catch (e) {
-        // blocked by autoplay policy
-      }
-    }
 
-    function generateRandomPin() {
-      return Math.floor(100000 + Math.random() * 900000).toString();
-    }
+        modal.classList.remove('hidden');
 
-    function copyToClipboard(text, successMsg = 'Copied to clipboard!') {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-        showToast(successMsg, 'success');
-      } catch (err) {
-        showToast('Failed to copy', 'error');
-      }
-      document.body.removeChild(ta);
-    }
-
-    async function setupLocalMedia(audioDeviceId = null, videoDeviceId = null) {
-      try {
-        const constraints = {
-          audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
-          video: videoDeviceId ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } : { width: { ideal: 1280 }, height: { ideal: 720 } }
+        const cleanUp = () => {
+          modal.classList.add('hidden');
+          confirmBtn.onclick = null;
+          cancelBtn.onclick = null;
         };
 
-        if (appState.localStream) {
-          appState.localStream.getTracks().forEach(t => t.stop());
-        }
+        confirmBtn.onclick = () => {
+          const val = prompt ? promptInput.value : true;
+          cleanUp();
+          if (onConfirm) onConfirm(val);
+        };
 
-        appState.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        previewVideo.srcObject = appState.localStream;
-        if (videoLocal) {
-          videoLocal.srcObject = appState.localStream;
-        }
-
-        setupLocalAudioMeter(appState.localStream);
-        await populateDeviceList();
-        syncMediaControlsUI();
-      } catch (err) {
-        console.warn('Media init error:', err);
-        try {
-          appState.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          previewVideo.srcObject = appState.localStream;
-          appState.isVideoMuted = true;
-          syncMediaControlsUI();
-        } catch (e) {
-          showToast('Mic & Cam access denied or unavailable', 'error');
-        }
+        cancelBtn.onclick = () => {
+          cleanUp();
+          if (onCancel) onCancel();
+        };
       }
-    }
+    };
+  </script>
 
-    async function populateDeviceList() {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        selectAudioInput.innerHTML = '';
-        selectVideoInput.innerHTML = '';
-        selectAudioOutput.innerHTML = '';
+  <script>
+    /**
+     * Storage Engine: Operates entirely in runtime memory or direct Google Drive API v3.
+     * ZERO data stored in localStorage/IndexedDB without explicit ephemeral permission.
+     */
+    const DriveStorage = {
+      mode: 'virtual', // 'virtual' | 'gdrive'
+      clientId: '',
+      apiKey: '',
+      accessToken: null,
+      tokenClient: null,
+      userProfile: null,
+      
+      // Virtual In-Memory Drive structure (Pre-loaded with sample files & folders)
+      virtualFileSystem: [
+        { id: 'f-root-1', name: 'Cloud Documents', type: 'folder', parent: 'root', modifiedTime: '2026-09-18T10:00:00Z', size: '--' },
+        { id: 'f-root-2', name: 'Media Library', type: 'folder', parent: 'root', modifiedTime: '2026-09-17T15:20:00Z', size: '--' },
+        { id: 'doc-1', name: 'Welcome_To_CloudOS.txt', type: 'text/plain', parent: 'root', modifiedTime: '2026-09-19T08:00:00Z', size: '1.2 KB', content: `Welcome to CloudOS!\n====================\n\n1. 100% Client-Side Web Desktop: Perfect for hosting on GitHub Pages.\n2. Google Drive Storage: Seamlessly connects directly to Google Drive API v3 using Google Identity Services (GIS).\n3. Privacy First: Files reside in your Google Drive cloud space, not locally stored in cookies or permanent device storage.\n4. Virtual Cloud Mode: Works immediately out-of-the-box in volatile memory if you do not want to configure Google API keys yet.\n\nEnjoy exploring the apps!\n` },
+        { id: 'doc-2', name: 'System_Specs.json', type: 'application/json', parent: 'root', modifiedTime: '2026-09-19T09:12:00Z', size: '340 B', content: `{\n  "os": "CloudOS v3.2",\n  "storageTarget": "Google Drive REST v3",\n  "platform": "Vanilla Web / GitHub Pages",\n  "security": "Ephemeral Runtime Memory"\n}` },
+        { id: 'doc-3', name: 'Project_Roadmap.md', type: 'text/markdown', parent: 'f-root-1', modifiedTime: '2026-09-18T11:45:00Z', size: '820 B', content: `# Roadmap\n- [x] Window drag & snap\n- [x] Start menu & System tray\n- [x] Google Drive API v3 streaming\n- [x] Web Terminal & Neofetch\n- [x] In-browser sandboxed tools` },
+        { id: 'media-1', name: 'Sample_Landscape.jpg', type: 'image/jpeg', parent: 'f-root-2', modifiedTime: '2026-09-15T14:30:00Z', size: '280 KB', url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800' }
+      ],
 
-        devices.forEach(dev => {
-          const opt = document.createElement('option');
-          opt.value = dev.deviceId;
-          if (dev.kind === 'audioinput') {
-            opt.text = dev.label || `Microphone ${selectAudioInput.length + 1}`;
-            selectAudioInput.appendChild(opt);
-          } else if (dev.kind === 'videoinput') {
-            opt.text = dev.label || `Camera ${selectVideoInput.length + 1}`;
-            selectVideoInput.appendChild(opt);
-          } else if (dev.kind === 'audiooutput') {
-            opt.text = dev.label || `Speaker ${selectAudioOutput.length + 1}`;
-            selectAudioOutput.appendChild(opt);
-          }
-        });
-      } catch (e) {
-        console.error('Device listing failed:', e);
-      }
-    }
+      currentFolderId: 'root',
 
-    function setupLocalAudioMeter(stream) {
-      try {
-        if (!appState.localAudioContext) {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          appState.localAudioContext = new AudioContextClass();
-        }
-        appState.localAnalyser = appState.localAudioContext.createAnalyser();
-        appState.localAnalyser.fftSize = 64;
+      init() {
+        this.updateTrayBadge();
+      },
 
-        const src = appState.localAudioContext.createMediaStreamSource(stream);
-        src.connect(appState.localAnalyser);
+      updateTrayBadge() {
+        const text = document.getElementById('tray-cloud-text');
+        const icon = document.getElementById('tray-cloud-icon');
+        const startName = document.getElementById('start-drive-name');
+        const startStatus = document.getElementById('start-drive-status');
 
-        const dataArray = new Uint8Array(appState.localAnalyser.frequencyBinCount);
-
-        function tickMeter() {
-          if (!appState.localAnalyser || appState.isAudioMuted) {
-            if (previewMicBar) previewMicBar.style.width = '0%';
-            if (speakingBorderLocal) speakingBorderLocal.style.opacity = '0';
-            requestAnimationFrame(tickMeter);
-            return;
-          }
-
-          appState.localAnalyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const avg = sum / dataArray.length;
-          const percent = Math.min(100, Math.round((avg / 128) * 100));
-
-          if (previewMicBar) previewMicBar.style.width = `${percent}%`;
-
-          if (speakingBorderLocal) {
-            speakingBorderLocal.style.opacity = percent > 14 ? '1' : '0';
-          }
-
-          requestAnimationFrame(tickMeter);
-        }
-        tickMeter();
-      } catch (e) {
-        console.warn('Local audio analyzer blocked or unsupported:', e);
-      }
-    }
-
-    function setupRemoteAudioMeter(stream) {
-      try {
-        if (!appState.localAudioContext) {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          appState.localAudioContext = new AudioContextClass();
-        }
-        appState.remoteAnalyser = appState.localAudioContext.createAnalyser();
-        appState.remoteAnalyser.fftSize = 64;
-
-        const src = appState.localAudioContext.createMediaStreamSource(stream);
-        src.connect(appState.remoteAnalyser);
-
-        const dataArray = new Uint8Array(appState.remoteAnalyser.frequencyBinCount);
-
-        function tickRemoteMeter() {
-          if (!appState.remoteAnalyser || appState.remoteAudioMuted) {
-            if (speakingBorderRemote) speakingBorderRemote.style.opacity = '0';
-            requestAnimationFrame(tickRemoteMeter);
-            return;
-          }
-
-          appState.remoteAnalyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const avg = sum / dataArray.length;
-          const percent = Math.min(100, Math.round((avg / 128) * 100));
-
-          if (speakingBorderRemote) {
-            speakingBorderRemote.style.opacity = percent > 14 ? '1' : '0';
-          }
-
-          requestAnimationFrame(tickRemoteMeter);
-        }
-        tickRemoteMeter();
-      } catch (e) {
-        console.warn('Remote audio analyzer blocked:', e);
-      }
-    }
-
-    function toggleMic() {
-      if (!appState.localStream) return;
-      const tracks = appState.localStream.getAudioTracks();
-      if (tracks.length === 0) return;
-
-      appState.isAudioMuted = !appState.isAudioMuted;
-      tracks.forEach(t => (t.enabled = !appState.isAudioMuted));
-
-      sendDataMessage({
-        type: 'peer_media_status',
-        audio: !appState.isAudioMuted,
-        video: !appState.isVideoMuted,
-        screen: appState.isScreenSharing
-      });
-
-      syncMediaControlsUI();
-    }
-
-    function toggleVideo() {
-      if (!appState.localStream) return;
-      const tracks = appState.localStream.getVideoTracks();
-      if (tracks.length === 0) return;
-
-      appState.isVideoMuted = !appState.isVideoMuted;
-      tracks.forEach(t => (t.enabled = !appState.isVideoMuted));
-
-      avatarLocal.classList.toggle('hidden', !appState.isVideoMuted);
-      previewAvatar.classList.toggle('hidden', !appState.isVideoMuted);
-
-      sendDataMessage({
-        type: 'peer_media_status',
-        audio: !appState.isAudioMuted,
-        video: !appState.isVideoMuted,
-        screen: appState.isScreenSharing
-      });
-
-      syncMediaControlsUI();
-    }
-
-    async function toggleScreenShare() {
-      if (!appState.isScreenSharing) {
-        try {
-          const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always' },
-            audio: false
-          });
-
-          appState.screenStream = displayStream;
-          const screenVideoTrack = displayStream.getVideoTracks()[0];
-
-          screenVideoTrack.onended = () => {
-            stopScreenShare();
-          };
-
-          // Swap track on WebRTC PeerConnection
-          replaceTrackOnActiveCall(screenVideoTrack);
-
-          // Update local UI
-          appState.isScreenSharing = true;
-          layoutScreenSpotlight(displayStream, `${appState.username} (Screen)`, true);
-
-          sendDataMessage({
-            type: 'peer_media_status',
-            audio: !appState.isAudioMuted,
-            video: !appState.isVideoMuted,
-            screen: true,
-            screenOwner: appState.username
-          });
-
-          syncMediaControlsUI();
-          showToast('Screen sharing started', 'success');
-        } catch (err) {
-          console.warn('Screen share canceled:', err);
-        }
-      } else {
-        stopScreenShare();
-      }
-    }
-
-    function stopScreenShare() {
-      if (appState.screenStream) {
-        appState.screenStream.getTracks().forEach(t => t.stop());
-        appState.screenStream = null;
-      }
-      appState.isScreenSharing = false;
-
-      // Restore camera track to active call
-      if (appState.localStream) {
-        const camTrack = appState.localStream.getVideoTracks()[0];
-        if (camTrack) replaceTrackOnActiveCall(camTrack);
-      }
-
-      hideScreenSpotlight();
-
-      sendDataMessage({
-        type: 'peer_media_status',
-        audio: !appState.isAudioMuted,
-        video: !appState.isVideoMuted,
-        screen: false
-      });
-
-      syncMediaControlsUI();
-      showToast('Screen sharing stopped', 'info');
-    }
-
-    function replaceTrackOnActiveCall(newVideoTrack) {
-      if (appState.activeCall && appState.activeCall.peerConnection) {
-        const senders = appState.activeCall.peerConnection.getSenders();
-        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-        if (videoSender) {
-          videoSender.replaceTrack(newVideoTrack);
-        }
-      }
-    }
-
-    function layoutScreenSpotlight(stream, labelText, isLocalScreen = false) {
-      spotlightScreenVideo.srcObject = stream;
-      spotlightScreenLabel.textContent = labelText;
-      screenSpotlightBox.classList.remove('hidden');
-
-      // Shift dual camera container into a responsive compact bar
-      const dualGrid = document.getElementById('dual-camera-grid');
-      dualGrid.classList.remove('flex-1');
-      dualGrid.classList.add('h-40', 'sm:h-48');
-    }
-
-    function hideScreenSpotlight() {
-      spotlightScreenVideo.srcObject = null;
-      screenSpotlightBox.classList.add('hidden');
-
-      const dualGrid = document.getElementById('dual-camera-grid');
-      dualGrid.classList.remove('h-40', 'sm:h-48');
-      dualGrid.classList.add('flex-1');
-    }
-
-    function syncMediaControlsUI() {
-      const micIcon = appState.isAudioMuted ? 'mic-off' : 'mic';
-      const camIcon = appState.isVideoMuted ? 'video-off' : 'video';
-
-      // Preview buttons
-      previewBtnMic.className = `p-2 rounded-full transition focus:outline-none ${appState.isAudioMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'}`;
-      previewBtnMic.innerHTML = `<i data-lucide="${micIcon}" class="w-4 h-4"></i>`;
-
-      previewBtnCam.className = `p-2 rounded-full transition focus:outline-none ${appState.isVideoMuted ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'}`;
-      previewBtnCam.innerHTML = `<i data-lucide="${camIcon}" class="w-4 h-4"></i>`;
-
-      // Call controls
-      ctrlMic.className = `w-12 h-12 rounded-2xl flex items-center justify-center transition border ${appState.isAudioMuted ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'}`;
-      ctrlMic.innerHTML = `<i data-lucide="${micIcon}" class="w-5 h-5"></i>`;
-
-      ctrlCam.className = `w-12 h-12 rounded-2xl flex items-center justify-center transition border ${appState.isVideoMuted ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'}`;
-      ctrlCam.innerHTML = `<i data-lucide="${camIcon}" class="w-5 h-5"></i>`;
-
-      ctrlScreen.className = `w-12 h-12 rounded-2xl flex items-center justify-center transition border ${appState.isScreenSharing ? 'bg-brand-600 border-brand-400 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'}`;
-
-      iconLocalMic.innerHTML = `<i data-lucide="${micIcon}" class="w-3.5 h-3.5 ${appState.isAudioMuted ? 'text-rose-400' : 'text-slate-400'}"></i>`;
-
-      lucide.createIcons();
-    }
-
-    async function start1on1Call(role, pairCode) {
-      appState.role = role;
-      appState.pairCode = pairCode;
-      appState.username = inputUsername.value.trim() || (role === 'A' ? 'User A' : 'User B');
-      lobbyError.textContent = '';
-
-      headerPairCode.textContent = pairCode;
-      labelNameLocal.textContent = `${appState.username} (You)`;
-      labelRoleBadgeLocal.textContent = `USER ${role}`;
-      document.getElementById('avatar-circle-local').textContent = appState.username.substring(0, 2).toUpperCase();
-      document.getElementById('label-avatar-local').textContent = appState.username;
-
-      const hostPeerId = PEER_PREFIX + pairCode;
-
-      try {
-        if (role === 'A') {
-          // User A claims the predictable host peer ID
-          connIndicatorText.textContent = 'Awaiting User B...';
-          connIndicatorDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
-          remoteWaitingText.textContent = 'Waiting for User B to dial...';
-
-          appState.peer = new Peer(hostPeerId);
-
-          appState.peer.on('open', (id) => {
-            appState.peerId = id;
-            switchToCallStage();
-            showToast(`Room ready. Waiting for User B!`, 'info');
-          });
-
-          // Handle incoming connection from User B
-          appState.peer.on('connection', (conn) => {
-            // Strict 2-participant enforcement: Block if another peer is already connected
-            if (appState.activeDataConn && appState.activeDataConn.open) {
-              conn.on('open', () => {
-                conn.send({ type: 'session_full', message: 'Room already has 2 users (User A & User B connected).' });
-                setTimeout(() => conn.close(), 500);
-              });
-              return;
-            }
-            setupDataConnection(conn);
-          });
-
-          // Handle incoming media call from User B
-          appState.peer.on('call', (incomingCall) => {
-            if (appState.activeCall) {
-              // Reject third caller
-              incomingCall.close();
-              return;
-            }
-            appState.activeCall = incomingCall;
-            const streamToSend = appState.isScreenSharing && appState.screenStream ? appState.screenStream : appState.localStream;
-            incomingCall.answer(streamToSend);
-            setupMediaCall(incomingCall);
-          });
-
-          appState.peer.on('error', (err) => {
-            if (err.type === 'unavailable-id') {
-              lobbyError.textContent = 'This 6-digit code is already active. Please generate a new code.';
-            } else {
-              lobbyError.textContent = `Connection error: ${err.type}`;
-            }
-          });
-
+        if (this.mode === 'gdrive' && this.accessToken) {
+          text.textContent = 'Drive: Connected';
+          text.className = 'hidden md:inline text-[11px] font-medium text-emerald-300';
+          icon.className = 'w-4 h-4 text-emerald-400 sync-glow';
+          startName.textContent = this.userProfile ? this.userProfile.name : 'Google Drive';
+          startStatus.textContent = 'Live Cloud v3 Active';
         } else {
-          // User B generates random peer ID and dials User A
-          connIndicatorText.textContent = 'Connecting to User A...';
-          connIndicatorDot.className = 'w-2 h-2 rounded-full bg-indigo-400 animate-ping';
-          remoteWaitingText.textContent = 'Connecting with User A...';
-
-          appState.peer = new Peer();
-
-          appState.peer.on('open', () => {
-            switchToCallStage();
-
-            // Connect Data Channel to User A
-            const conn = appState.peer.connect(hostPeerId, {
-              metadata: { name: appState.username, role: 'B' }
-            });
-            setupDataConnection(conn);
-
-            // Dial media call to User A
-            const streamToSend = appState.isScreenSharing && appState.screenStream ? appState.screenStream : appState.localStream;
-            const call = appState.peer.call(hostPeerId, streamToSend);
-            appState.activeCall = call;
-            setupMediaCall(call);
-          });
-
-          appState.peer.on('error', (err) => {
-            if (err.type === 'peer-unavailable') {
-              lobbyError.textContent = `User A with code "${pairCode}" was not found. Verify code.`;
-              endCall(false);
-            } else {
-              lobbyError.textContent = `Connection error: ${err.type}`;
-            }
-          });
+          text.textContent = 'Drive: Virtual';
+          text.className = 'hidden md:inline text-[11px] font-medium text-amber-300';
+          icon.className = 'w-4 h-4 text-amber-400';
+          startName.textContent = 'Virtual Cloud Storage';
+          startStatus.textContent = 'Mode: Ephemeral RAM';
         }
-      } catch (err) {
-        console.error('Call initialization failed:', err);
-        lobbyError.textContent = 'Unable to launch call.';
-      }
-    }
+      },
 
-    function setupDataConnection(conn) {
-      appState.activeDataConn = conn;
+      openAuthDialog() {
+        AppManager.launch('settings', { tab: 'drive' });
+      },
 
-      conn.on('open', () => {
-        connIndicatorDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-        connIndicatorText.textContent = 'P2P Connected';
-
-        // Send identity handshake
-        conn.send({
-          type: 'handshake',
-          name: appState.username,
-          role: appState.role,
-          audio: !appState.isAudioMuted,
-          video: !appState.isVideoMuted,
-          screen: appState.isScreenSharing
-        });
-      });
-
-      conn.on('data', (data) => {
-        handleIncomingP2PData(data);
-      });
-
-      conn.on('close', () => {
-        handleRemotePeerDisconnected();
-      });
-    }
-
-    function setupMediaCall(call) {
-      call.on('stream', (stream) => {
-        appState.remoteStream = stream;
-        videoRemote.srcObject = stream;
-        overlayRemoteWaiting.classList.add('hidden');
-        setupRemoteAudioMeter(stream);
-        playChime('join');
-      });
-
-      call.on('close', () => {
-        handleRemotePeerDisconnected();
-      });
-    }
-
-    function handleIncomingP2PData(data) {
-      if (data.type === 'handshake') {
-        appState.remoteUsername = data.name || (appState.role === 'A' ? 'User B' : 'User A');
-        labelNameRemote.textContent = appState.remoteUsername;
-        labelRoleBadgeRemote.textContent = `USER ${data.role || (appState.role === 'A' ? 'B' : 'A')}`;
-        document.getElementById('avatar-circle-remote').textContent = appState.remoteUsername.substring(0, 2).toUpperCase();
-        document.getElementById('label-avatar-remote').textContent = appState.remoteUsername;
-        showToast(`${appState.remoteUsername} joined the 1-on-1 call!`, 'success');
-
-        // If remote peer was already sharing screen
-        if (data.screen && appState.remoteStream) {
-          layoutScreenSpotlight(appState.remoteStream, `${appState.remoteUsername} (Screen)`);
-        }
-      } else if (data.type === 'chat') {
-        appendChatMessage(data.sender, data.text, data.time, false);
-      } else if (data.type === 'typing') {
-        showRemoteTyping(data.isTyping);
-      } else if (data.type === 'peer_media_status') {
-        appState.remoteAudioMuted = !data.audio;
-        appState.remoteVideoMuted = !data.video;
-
-        avatarRemote.classList.toggle('hidden', data.video);
-        iconRemoteMic.innerHTML = `<i data-lucide="${data.audio ? 'mic' : 'mic-off'}" class="w-3.5 h-3.5 ${data.audio ? 'text-slate-400' : 'text-rose-400'}"></i>`;
-        lucide.createIcons();
-
-        // Handle remote peer screen sharing toggle
-        if (data.screen && appState.remoteStream) {
-          layoutScreenSpotlight(appState.remoteStream, `${data.screenOwner || appState.remoteUsername} (Screen)`);
-        } else if (!data.screen && !appState.isScreenSharing) {
-          hideScreenSpotlight();
-        }
-      } else if (data.type === 'session_full') {
-        showToast(data.message, 'error');
-        endCall(false);
-      }
-    }
-
-    function sendDataMessage(payload) {
-      if (appState.activeDataConn && appState.activeDataConn.open) {
-        appState.activeDataConn.send(payload);
-      }
-    }
-
-    function handleRemotePeerDisconnected() {
-      playChime('leave');
-      showToast(`${appState.remoteUsername} disconnected`, 'error');
-      connIndicatorDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
-      connIndicatorText.textContent = 'Waiting for Peer...';
-      overlayRemoteWaiting.classList.remove('hidden');
-      remoteWaitingText.textContent = `${appState.remoteUsername} left the call. Waiting...`;
-      videoRemote.srcObject = null;
-      hideScreenSpotlight();
-    }
-
-    function switchToCallStage() {
-      viewLobby.classList.add('hidden');
-      viewCall.classList.remove('hidden');
-      headerCallInfo.classList.remove('hidden');
-      headerCallInfo.classList.add('flex');
-      videoLocal.srcObject = appState.localStream;
-      lucide.createIcons();
-    }
-
-    function endCall(notifyToast = true) {
-      if (appState.screenStream) {
-        appState.screenStream.getTracks().forEach(t => t.stop());
-      }
-      if (appState.activeCall) {
-        appState.activeCall.close();
-        appState.activeCall = null;
-      }
-      if (appState.activeDataConn) {
-        appState.activeDataConn.close();
-        appState.activeDataConn = null;
-      }
-      if (appState.peer) {
-        appState.peer.destroy();
-        appState.peer = null;
-      }
-
-      appState.isScreenSharing = false;
-      hideScreenSpotlight();
-
-      // Reset to lobby
-      viewCall.classList.add('hidden');
-      headerCallInfo.classList.add('hidden');
-      headerCallInfo.classList.remove('flex');
-      viewLobby.classList.remove('hidden');
-      chatPanel.classList.add('translate-x-full');
-      appState.isChatOpen = false;
-
-      previewVideo.srcObject = appState.localStream;
-      if (notifyToast) showToast('Call ended', 'info');
-    }
-
-    chatForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const text = chatInput.value.trim();
-      if (!text) return;
-
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      appendChatMessage('You', text, time, true);
-
-      sendDataMessage({
-        type: 'chat',
-        sender: appState.username,
-        text: text,
-        time: time
-      });
-
-      sendDataMessage({ type: 'typing', isTyping: false });
-      chatInput.value = '';
-    });
-
-    chatInput.addEventListener('input', () => {
-      sendDataMessage({ type: 'typing', isTyping: true });
-      clearTimeout(appState.typingTimeout);
-      appState.typingTimeout = setTimeout(() => {
-        sendDataMessage({ type: 'typing', isTyping: false });
-      }, 1500);
-    });
-
-    function showRemoteTyping(isTyping) {
-      if (isTyping) {
-        chatTypingIndicator.textContent = `${appState.remoteUsername} is typing...`;
-        chatTypingIndicator.classList.remove('hidden');
-      } else {
-        chatTypingIndicator.classList.add('hidden');
-      }
-    }
-
-    function appendChatMessage(sender, text, time, isMe) {
-      const el = document.createElement('div');
-      el.className = `flex flex-col space-y-1 ${isMe ? 'items-end' : 'items-start'}`;
-
-      el.innerHTML = `
-        <div class="flex items-center space-x-1 text-[10px] text-slate-400">
-          <span class="font-semibold ${isMe ? 'text-brand-400' : 'text-purple-400'}">${escapeHtml(sender)}</span>
-          <span>•</span>
-          <span>${time}</span>
-        </div>
-        <div class="max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${isMe ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700/80'}">
-          ${escapeHtml(text)}
-        </div>
-      `;
-
-      chatMessagesContainer.appendChild(el);
-      chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-
-      if (!appState.isChatOpen && !isMe) {
-        appState.unreadChatCount++;
-        chatBadge.textContent = appState.unreadChatCount;
-        chatBadge.classList.remove('hidden');
-      }
-    }
-
-    function toggleChatDrawer() {
-      appState.isChatOpen = !appState.isChatOpen;
-      if (appState.isChatOpen) {
-        chatPanel.classList.remove('translate-x-full');
-        appState.unreadChatCount = 0;
-        chatBadge.classList.add('hidden');
-        chatInput.focus();
-      } else {
-        chatPanel.classList.add('translate-x-full');
-      }
-    }
-
-    function escapeHtml(str) {
-      return str.replace(/[&<>'"]/g, tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[tag] || tag));
-    }
-
-    async function togglePiP() {
-      try {
-        const targetVid = appState.remoteStream ? videoRemote : videoLocal;
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-        } else if (document.pictureInPictureEnabled && targetVid) {
-          await targetVid.requestPictureInPicture();
-        }
-      } catch (e) {
-        showToast('PiP mode blocked or unsupported', 'info');
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      lucide.createIcons();
-
-      // Generate default 6-digit room code for User A
-      let currentCode = generateRandomPin();
-      displayGeneratedCode.textContent = currentCode;
-
-      // Auto-populate from URL query params (e.g., ?join=482910 or ?role=B&code=482910)
-      const urlParams = new URLSearchParams(window.location.search);
-      const joinParam = urlParams.get('join') || urlParams.get('code');
-      const roleParam = urlParams.get('role');
-
-      if (joinParam) {
-        inputJoinCode.value = joinParam;
-        // Switch view to join tab
-        tabJoin.click();
-      }
-
-      await setupLocalMedia();
-
-      // Role Tabs Switching
-      tabHost.addEventListener('click', () => {
-        tabHost.className = 'py-2 text-xs font-semibold rounded-lg bg-brand-600 text-white shadow transition flex items-center justify-center space-x-1.5';
-        tabJoin.className = 'py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition flex items-center justify-center space-x-1.5';
-        panelHost.classList.remove('hidden');
-        panelJoin.classList.add('hidden');
-        inputUsername.value = 'User A';
-      });
-
-      tabJoin.addEventListener('click', () => {
-        tabJoin.className = 'py-2 text-xs font-semibold rounded-lg bg-purple-600 text-white shadow transition flex items-center justify-center space-x-1.5';
-        tabHost.className = 'py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition flex items-center justify-center space-x-1.5';
-        panelJoin.classList.remove('hidden');
-        panelHost.classList.add('hidden');
-        inputUsername.value = 'User B';
-      });
-
-      btnRegenCode.addEventListener('click', () => {
-        currentCode = generateRandomPin();
-        displayGeneratedCode.textContent = currentCode;
-      });
-
-      // Start meeting triggers
-      btnStartHost.addEventListener('click', () => {
-        start1on1Call('A', currentCode);
-      });
-
-      btnStartJoin.addEventListener('click', () => {
-        const code = inputJoinCode.value.trim();
-        if (code.length < 4) {
-          lobbyError.textContent = 'Please enter a valid 6-digit pair code.';
+      /* Initialize Google Identity Services */
+      initGoogleDriveAuth(clientId, apiKey, callback) {
+        if (!clientId || !apiKey) {
+          Notifications.show('Drive Configuration', 'Please specify both Client ID and API Key.', 'warn');
           return;
         }
-        start1on1Call('B', code);
-      });
+        this.clientId = clientId;
+        this.apiKey = apiKey;
 
-      // In-call Buttons
-      previewBtnMic.addEventListener('click', toggleMic);
-      previewBtnCam.addEventListener('click', toggleVideo);
-      ctrlMic.addEventListener('click', toggleMic);
-      ctrlCam.addEventListener('click', toggleVideo);
-      ctrlScreen.addEventListener('click', toggleScreenShare);
-      ctrlPip.addEventListener('click', togglePiP);
-      ctrlEnd.addEventListener('click', () => endCall(true));
+        try {
+          if (!window.google || !google.accounts) {
+            Notifications.show('Drive Error', 'Google Identity Services script not yet ready. Check network connection.', 'error');
+            return;
+          }
 
-      ctrlChatToggle.addEventListener('click', toggleChatDrawer);
-      btnCloseChat.addEventListener('click', toggleChatDrawer);
+          this.tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: this.clientId,
+            scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile',
+            callback: (tokenResponse) => {
+              if (tokenResponse && tokenResponse.access_token) {
+                this.accessToken = tokenResponse.access_token;
+                this.mode = 'gdrive';
+                this.fetchUserProfile();
+                this.updateTrayBadge();
+                Notifications.show('Drive Connected', 'Successfully authenticated with Google Drive!', 'success');
+                if (callback) callback(true);
+                DriveExplorer.refresh();
+              }
+            },
+          });
 
-      // Copy buttons
-      btnCopyCode.addEventListener('click', () => {
-        const joinLink = `${window.location.origin}${window.location.pathname}?join=${appState.pairCode}`;
-        copyToClipboard(joinLink, 'Direct 1-on-1 link copied!');
-      });
-
-      btnInviteLink.addEventListener('click', () => {
-        const joinLink = `${window.location.origin}${window.location.pathname}?join=${appState.pairCode}`;
-        copyToClipboard(joinLink, 'Direct 1-on-1 link copied!');
-      });
-
-      btnSpotlightFullscreen.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-          spotlightScreenVideo.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
+          this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        } catch (err) {
+          console.error(err);
+          Notifications.show('OAuth Error', err.message || 'Failed initializing GIS Client', 'error');
         }
-      });
+      },
 
-      // Device Modal
-      btnOpenSettings.addEventListener('click', () => {
-        modalSettings.classList.remove('hidden');
-        modalSettings.classList.add('flex');
-      });
-      btnCloseSettings.addEventListener('click', () => {
-        modalSettings.classList.add('hidden');
-        modalSettings.classList.remove('flex');
-      });
-      btnApplySettings.addEventListener('click', async () => {
-        modalSettings.classList.add('hidden');
-        modalSettings.classList.remove('flex');
-        await setupLocalMedia(selectAudioInput.value, selectVideoInput.value);
-        if (selectAudioOutput.value && typeof videoRemote.setSinkId === 'function') {
+      async fetchUserProfile() {
+        try {
+          const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${this.accessToken}` }
+          });
+          const data = await res.json();
+          this.userProfile = data;
+          if (data.name) {
+            document.getElementById('start-user-name').textContent = data.name;
+            document.getElementById('start-user-sub').textContent = data.email || 'Connected Google Drive';
+            if (data.picture) {
+              document.getElementById('user-avatar-badge').innerHTML = `<img src="${data.picture}" class="w-full h-full rounded-full object-cover">`;
+            }
+          }
+        } catch (e) {
+          console.warn('Could not fetch user profile', e);
+        }
+      },
+
+      disconnectDrive() {
+        this.accessToken = null;
+        this.mode = 'virtual';
+        this.userProfile = null;
+        this.updateTrayBadge();
+        document.getElementById('start-user-name').textContent = 'Drive Cloud User';
+        document.getElementById('start-user-sub').textContent = 'No local data saved';
+        document.getElementById('user-avatar-badge').innerHTML = `<i data-lucide="user" class="w-5 h-5"></i>`;
+        lucide.createIcons();
+        Notifications.show('Drive Disconnected', 'Switched back to In-Memory Virtual Cloud.', 'info');
+        DriveExplorer.refresh();
+      },
+
+      /* Unified API: List Files in folder */
+      async listFiles(folderId = 'root') {
+        if (this.mode === 'gdrive' && this.accessToken) {
           try {
-            await videoRemote.setSinkId(selectAudioOutput.value);
+            const query = `'${folderId}' in parents and trashed = false`;
+            const fields = 'files(id, name, mimeType, size, modifiedTime, thumbnailLink, webViewLink)';
+            const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&key=${this.apiKey}`;
+            
+            const res = await fetch(url, {
+              headers: { Authorization: `Bearer ${this.accessToken}` }
+            });
+            if (!res.ok) throw new Error(`Drive API error: ${res.statusText}`);
+            const data = await res.json();
+            
+            return (data.files || []).map(f => ({
+              id: f.id,
+              name: f.name,
+              type: f.mimeType === 'application/vnd.google-apps.folder' ? 'folder' : f.mimeType,
+              parent: folderId,
+              modifiedTime: f.modifiedTime,
+              size: f.size ? `${(f.size / 1024).toFixed(1)} KB` : '--',
+              webViewLink: f.webViewLink
+            }));
+          } catch (err) {
+            Notifications.show('Cloud Fetch Failed', err.message, 'error');
+            return [];
+          }
+        } else {
+          // Return from runtime virtual RAM storage
+          return this.virtualFileSystem.filter(item => item.parent === folderId);
+        }
+      },
+
+      /* Unified API: Get text content of a file */
+      async readFile(fileId) {
+        if (this.mode === 'gdrive' && this.accessToken) {
+          try {
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+              headers: { Authorization: `Bearer ${this.accessToken}` }
+            });
+            return await res.text();
           } catch (e) {
-            console.warn(e);
+            Notifications.show('Error', 'Unable to read file from Drive', 'error');
+            return '';
+          }
+        } else {
+          const item = this.virtualFileSystem.find(f => f.id === fileId);
+          return item ? (item.content || '') : '';
+        }
+      },
+
+      /* Unified API: Save / Write file */
+      async writeFile(name, content, fileId = null, parentId = 'root') {
+        if (this.mode === 'gdrive' && this.accessToken) {
+          try {
+            if (fileId) {
+              // Update existing
+              const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+                method: 'PATCH',
+                headers: {
+                  Authorization: `Bearer ${this.accessToken}`,
+                  'Content-Type': 'text/plain'
+                },
+                body: content
+              });
+              if (res.ok) {
+                Notifications.show('Saved', `${name} updated in Google Drive`, 'success');
+                return true;
+              }
+            } else {
+              // Create new multipart upload
+              const metadata = { name: name, parents: [parentId === 'root' ? 'root' : parentId] };
+              const boundary = 'foo_bar_baz';
+              const delimiter = "\r\n--" + boundary + "\r\n";
+              const close_delim = "\r\n--" + boundary + "--";
+
+              const multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: text/plain\r\n\r\n' +
+                content +
+                close_delim;
+
+              const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${this.accessToken}`,
+                  'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                body: multipartRequestBody
+              });
+              if (res.ok) {
+                Notifications.show('Created', `${name} uploaded to Google Drive`, 'success');
+                DriveExplorer.refresh();
+                return true;
+              }
+            }
+          } catch (err) {
+            Notifications.show('Save Failed', err.message, 'error');
+            return false;
+          }
+        } else {
+          // Virtual Memory write
+          if (fileId) {
+            const item = this.virtualFileSystem.find(f => f.id === fileId);
+            if (item) {
+              item.content = content;
+              item.modifiedTime = new Date().toISOString();
+              Notifications.show('Saved', `${name} saved to Virtual Cloud`, 'success');
+              return true;
+            }
+          } else {
+            const newId = 'file-' + Date.now();
+            this.virtualFileSystem.push({
+              id: newId,
+              name,
+              type: 'text/plain',
+              parent: parentId,
+              modifiedTime: new Date().toISOString(),
+              size: `${(new Blob([content]).size / 1024).toFixed(1)} KB`,
+              content
+            });
+            Notifications.show('Created', `${name} created in memory`, 'success');
+            DriveExplorer.refresh();
+            return true;
           }
         }
-        showToast('Devices applied', 'success');
-      });
+      },
 
-      // Keyboard shortcuts
-      window.addEventListener('keydown', (e) => {
-        if (['input', 'textarea'].includes(document.activeElement.tagName.toLowerCase())) return;
-        if (e.key.toLowerCase() === 'm') toggleMic();
-        if (e.key.toLowerCase() === 'v') toggleVideo();
-        if (e.key.toLowerCase() === 's') toggleScreenShare();
-      });
+      /* Unified API: Create Folder */
+      async createFolder(folderName, parentId = 'root') {
+        if (this.mode === 'gdrive' && this.accessToken) {
+          try {
+            const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${this.accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [parentId === 'root' ? 'root' : parentId]
+              })
+            });
+            if (res.ok) {
+              Notifications.show('Folder Created', `${folderName} added to Drive`, 'success');
+              DriveExplorer.refresh();
+            }
+          } catch (e) {
+            Notifications.show('Error', 'Failed to create folder on Drive', 'error');
+          }
+        } else {
+          const newFolder = {
+            id: 'folder-' + Date.now(),
+            name: folderName,
+            type: 'folder',
+            parent: parentId,
+            modifiedTime: new Date().toISOString(),
+            size: '--'
+          };
+          this.virtualFileSystem.push(newFolder);
+          Notifications.show('Folder Created', `${folderName} added in Virtual Cloud`, 'success');
+          DriveExplorer.refresh();
+        }
+      },
+
+      /* Unified API: Delete File/Folder */
+      async deleteItem(id, name) {
+        SystemDialog.show({
+          title: 'Delete Item',
+          message: `Are you sure you want to delete "${name}" from cloud storage?`,
+          icon: 'alert-triangle',
+          onConfirm: async () => {
+            if (DriveStorage.mode === 'gdrive' && DriveStorage.accessToken) {
+              try {
+                const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
+                  method: 'DELETE',
+                  headers: { Authorization: `Bearer ${DriveStorage.accessToken}` }
+                });
+                if (res.ok) {
+                  Notifications.show('Deleted', `${name} removed from Google Drive`, 'success');
+                  DriveExplorer.refresh();
+                }
+              } catch (e) {
+                Notifications.show('Delete Failed', e.message, 'error');
+              }
+            } else {
+              DriveStorage.virtualFileSystem = DriveStorage.virtualFileSystem.filter(f => f.id !== id && f.parent !== id);
+              Notifications.show('Deleted', `${name} removed from memory`, 'info');
+              DriveExplorer.refresh();
+            }
+          }
+        });
+      },
+
+      triggerFileUpload() {
+        document.getElementById('global-cloud-file-input').click();
+      },
+
+      async handleNativeFileInput(e) {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+
+        for (const file of files) {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const content = event.target.result;
+            if (file.type.startsWith('image/')) {
+              // Store as virtual url or binary
+              DriveStorage.virtualFileSystem.push({
+                id: 'upload-' + Date.now(),
+                name: file.name,
+                type: file.type,
+                parent: DriveExplorer.currentPathId,
+                modifiedTime: new Date().toISOString(),
+                size: `${(file.size / 1024).toFixed(1)} KB`,
+                url: content
+              });
+            } else {
+              await DriveStorage.writeFile(file.name, content, null, DriveExplorer.currentPathId);
+            }
+            Notifications.show('File Uploaded', `${file.name} sent to current directory`, 'success');
+            DriveExplorer.refresh();
+          };
+
+          if (file.type.startsWith('image/')) {
+            reader.readAsDataURL(file);
+          } else {
+            reader.readAsText(file);
+          }
+        }
+        e.target.value = '';
+      },
+
+      createNewItemPrompt(type) {
+        SystemDialog.show({
+          title: type === 'folder' ? 'New Drive Folder' : 'New Document',
+          message: `Enter name for the new ${type}:`,
+          prompt: true,
+          defaultValue: type === 'folder' ? 'New Folder' : 'Untitled.txt',
+          onConfirm: (val) => {
+            if (!val) return;
+            if (type === 'folder') {
+              this.createFolder(val, DriveExplorer.currentPathId);
+            } else {
+              this.writeFile(val, '# New Cloud Note\nStart typing...', null, DriveExplorer.currentPathId);
+            }
+          }
+        });
+      },
+
+      syncRefresh() {
+        Notifications.show('Synchronizing', 'Refreshing Cloud file listing...', 'info');
+        DriveExplorer.refresh();
+      }
+    };
+  </script>
+
+  <script>
+    /**
+     * Window Manager handles dragging, resizing, z-index ordering,
+     * maximize/restore, minimize, and taskbar integration.
+     */
+    const WindowManager = {
+      windows: {},
+      activeWindowId: null,
+      topZ: 100,
+
+      create({ id, title, icon = 'app-window', width = 680, height = 480, contentHtml, onInit }) {
+        if (this.windows[id]) {
+          this.focus(id);
+          this.restore(id);
+          return;
+        }
+
+        const winId = `win-${id}`;
+        const winEl = document.createElement('div');
+        winEl.id = winId;
+        winEl.className = 'window-instance pointer-events-auto absolute acrylic rounded-2xl shadow-2xl border border-white/20 flex flex-col overflow-hidden transition-opacity duration-150';
+        
+        // Center window on screen initially
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight - 48;
+        const left = Math.max(20, Math.floor((screenW - width) / 2 + (Object.keys(this.windows).length * 20)));
+        const top = Math.max(20, Math.floor((screenH - height) / 2 + (Object.keys(this.windows).length * 20)));
+
+        winEl.style.width = `${width}px`;
+        winEl.style.height = `${height}px`;
+        winEl.style.left = `${left}px`;
+        winEl.style.top = `${top}px`;
+        winEl.style.zIndex = ++this.topZ;
+
+        winEl.innerHTML = `
+          <!-- Window Titlebar -->
+          <div class="window-titlebar h-10 bg-white/5 border-b border-white/10 flex items-center justify-between px-3.5 select-none cursor-move">
+            <div class="flex items-center space-x-2 text-xs font-medium text-slate-200 truncate">
+              <i data-lucide="${icon}" class="w-4 h-4 text-indigo-400"></i>
+              <span class="truncate window-title-text">${title}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button class="win-min-btn w-3 h-3 rounded-full bg-amber-400/80 hover:bg-amber-400 flex items-center justify-center text-black/70 transition"></button>
+              <button class="win-max-btn w-3 h-3 rounded-full bg-emerald-400/80 hover:bg-emerald-400 flex items-center justify-center text-black/70 transition"></button>
+              <button class="win-close-btn w-3 h-3 rounded-full bg-red-400/80 hover:bg-red-400 flex items-center justify-center text-black/70 transition"></button>
+            </div>
+          </div>
+
+          <!-- Window Content Body -->
+          <div class="window-content flex-1 overflow-hidden relative flex flex-col bg-slate-950/40">
+            ${contentHtml}
+          </div>
+
+          <!-- Resizers -->
+          <div class="resize-handle resize-right"></div>
+          <div class="resize-handle resize-bottom"></div>
+          <div class="resize-handle resize-corner"></div>
+        `;
+
+        document.getElementById('windows-container').appendChild(winEl);
+        lucide.createIcons();
+
+        const winData = {
+          id,
+          element: winEl,
+          title,
+          icon,
+          isMaximized: false,
+          isMinimized: false,
+          bounds: { left, top, width, height }
+        };
+
+        this.windows[id] = winData;
+        this.bindEvents(winData);
+        this.addTaskbarItem(winData);
+        this.focus(id);
+        SoundEngine.open();
+
+        if (onInit) onInit(winEl);
+      },
+
+      bindEvents(win) {
+        const el = win.element;
+        const titlebar = el.querySelector('.window-titlebar');
+        const minBtn = el.querySelector('.win-min-btn');
+        const maxBtn = el.querySelector('.win-max-btn');
+        const closeBtn = el.querySelector('.win-close-btn');
+
+        el.addEventListener('mousedown', () => this.focus(win.id));
+
+        // Dragging Logic
+        let isDragging = false;
+        let startX, startY, origLeft, origTop;
+
+        titlebar.addEventListener('mousedown', (e) => {
+          if (e.target.closest('button')) return;
+          if (win.isMaximized) return;
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          origLeft = el.offsetLeft;
+          origTop = el.offsetTop;
+
+          const onMouseMove = (moveEvent) => {
+            if (!isDragging) return;
+            const deltaX = moveEvent.clientX - startX;
+            const deltaY = moveEvent.clientY - startY;
+            el.style.left = `${Math.max(0, origLeft + deltaX)}px`;
+            el.style.top = `${Math.max(0, origTop + deltaY)}px`;
+          };
+
+          const onMouseUp = () => {
+            isDragging = false;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        });
+
+        // Double click titlebar to maximize
+        titlebar.addEventListener('dblclick', (e) => {
+          if (!e.target.closest('button')) this.toggleMaximize(win.id);
+        });
+
+        // Window Controls
+        minBtn.onclick = () => this.minimize(win.id);
+        maxBtn.onclick = () => this.toggleMaximize(win.id);
+        closeBtn.onclick = () => this.close(win.id);
+
+        // Resizing Logic
+        const cornerHandle = el.querySelector('.resize-corner');
+        const rightHandle = el.querySelector('.resize-right');
+        const bottomHandle = el.querySelector('.resize-bottom');
+
+        const setupResize = (handle, resizeW, resizeH) => {
+          handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const startW = el.offsetWidth;
+            const startH = el.offsetHeight;
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
+
+            const onMouseMove = (me) => {
+              if (resizeW) {
+                const newW = Math.max(340, startW + (me.clientX - startMouseX));
+                el.style.width = `${newW}px`;
+              }
+              if (resizeH) {
+                const newH = Math.max(220, startH + (me.clientY - startMouseY));
+                el.style.height = `${newH}px`;
+              }
+            };
+            const onMouseUp = () => {
+              window.removeEventListener('mousemove', onMouseMove);
+              window.removeEventListener('mouseup', onMouseUp);
+            };
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+          });
+        };
+
+        setupResize(cornerHandle, true, true);
+        setupResize(rightHandle, true, false);
+        setupResize(bottomHandle, false, true);
+      },
+
+      focus(id) {
+        const win = this.windows[id];
+        if (!win) return;
+        this.activeWindowId = id;
+        win.element.style.zIndex = ++this.topZ;
+        
+        // Update taskbar active styling
+        document.querySelectorAll('.taskbar-app-item').forEach(btn => {
+          btn.classList.remove('bg-white/20', 'border-indigo-400/50');
+        });
+        const taskBtn = document.getElementById(`task-btn-${id}`);
+        if (taskBtn) {
+          taskBtn.classList.add('bg-white/20', 'border-indigo-400/50');
+        }
+      },
+
+      toggleMaximize(id) {
+        const win = this.windows[id];
+        if (!win) return;
+        const el = win.element;
+        if (!win.isMaximized) {
+          win.bounds = {
+            left: el.offsetLeft,
+            top: el.offsetTop,
+            width: el.offsetWidth,
+            height: el.offsetHeight
+          };
+          el.style.left = '0px';
+          el.style.top = '0px';
+          el.style.width = '100%';
+          el.style.height = 'calc(100vh - 48px)';
+          el.classList.add('rounded-none');
+          win.isMaximized = true;
+        } else {
+          el.style.left = `${win.bounds.left}px`;
+          el.style.top = `${win.bounds.top}px`;
+          el.style.width = `${win.bounds.width}px`;
+          el.style.height = `${win.bounds.height}px`;
+          el.classList.remove('rounded-none');
+          win.isMaximized = false;
+        }
+      },
+
+      minimize(id) {
+        const win = this.windows[id];
+        if (!win) return;
+        win.element.classList.add('hidden');
+        win.isMinimized = true;
+        const taskBtn = document.getElementById(`task-btn-${id}`);
+        if (taskBtn) taskBtn.classList.remove('bg-white/20');
+      },
+
+      restore(id) {
+        const win = this.windows[id];
+        if (!win) return;
+        win.element.classList.remove('hidden');
+        win.isMinimized = false;
+        this.focus(id);
+      },
+
+      toggleWindowState(id) {
+        const win = this.windows[id];
+        if (!win) return;
+        if (win.isMinimized) {
+          this.restore(id);
+        } else if (this.activeWindowId === id) {
+          this.minimize(id);
+        } else {
+          this.focus(id);
+        }
+      },
+
+      close(id) {
+        const win = this.windows[id];
+        if (!win) return;
+        win.element.remove();
+        delete this.windows[id];
+        const taskBtn = document.getElementById(`task-btn-${id}`);
+        if (taskBtn) taskBtn.remove();
+        SoundEngine.click();
+      },
+
+      minimizeAll() {
+        Object.keys(this.windows).forEach(id => this.minimize(id));
+      },
+
+      addTaskbarItem(win) {
+        const container = document.getElementById('taskbar-apps');
+        const btn = document.createElement('button');
+        btn.id = `task-btn-${win.id}`;
+        btn.className = 'taskbar-app-item flex items-center space-x-1.5 px-3 h-9 rounded-lg hover:bg-white/10 border border-white/5 transition text-xs text-white';
+        btn.innerHTML = `
+          <i data-lucide="${win.icon}" class="w-4 h-4 text-indigo-400"></i>
+          <span class="max-w-[100px] truncate hidden sm:inline">${win.title}</span>
+        `;
+        btn.onclick = () => this.toggleWindowState(win.id);
+        container.appendChild(btn);
+        lucide.createIcons();
+      }
+    };
+  </script>
+
+  <script>
+    /**
+     * Application Manager: Contains definitions and views for
+     * Drive Explorer, Code Editor, Terminal, Browser, Media Player, Task Manager, Settings, Calculator
+     */
+    const AppManager = {
+      apps: {
+        explorer: {
+          title: 'Google Drive Explorer',
+          icon: 'folder',
+          category: 'Storage',
+          launch: (params) => DriveExplorer.open(params)
+        },
+        notepad: {
+          title: 'Cloud Editor',
+          icon: 'file-text',
+          category: 'Productivity',
+          launch: (params) => CloudEditor.open(params)
+        },
+        terminal: {
+          title: 'Cloud Terminal',
+          icon: 'terminal',
+          category: 'Utilities',
+          launch: (params) => CloudTerminal.open(params)
+        },
+        browser: {
+          title: 'Web Browser',
+          icon: 'globe',
+          category: 'Internet',
+          launch: (params) => WebBrowserApp.open(params)
+        },
+        calculator: {
+          title: 'Calculator',
+          icon: 'calculator',
+          category: 'Utilities',
+          launch: (params) => CalculatorApp.open(params)
+        },
+        media: {
+          title: 'Media Player',
+          icon: 'play-square',
+          category: 'Entertainment',
+          launch: (params) => MediaPlayerApp.open(params)
+        },
+        taskmgr: {
+          title: 'Task Manager',
+          icon: 'activity',
+          category: 'System',
+          launch: (params) => TaskManagerApp.open(params)
+        },
+        settings: {
+          title: 'Settings',
+          icon: 'settings',
+          category: 'System',
+          launch: (params) => SettingsApp.open(params)
+        }
+      },
+
+      launch(appId, params = {}) {
+        if (this.apps[appId]) {
+          Desktop.closeStartMenu();
+          this.apps[appId].launch(params);
+        }
+      }
+    };
+
+    /* 1. DRIVE EXPLORER APP */
+    const DriveExplorer = {
+      currentPathId: 'root',
+      pathHistory: ['root'],
+      historyIndex: 0,
+      breadcrumbs: [{ id: 'root', name: 'My Drive' }],
+
+      open() {
+        WindowManager.create({
+          id: 'explorer',
+          title: 'Google Drive Explorer',
+          icon: 'folder',
+          width: 760,
+          height: 490,
+          contentHtml: `
+            <!-- Explorer Navigation Bar -->
+            <div class="h-12 bg-white/5 border-b border-white/10 flex items-center justify-between px-3 text-xs gap-2">
+              <div class="flex items-center space-x-1">
+                <button onclick="DriveExplorer.goBack()" class="p-1.5 hover:bg-white/10 rounded-lg text-slate-300" title="Back"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                <button onclick="DriveExplorer.goForward()" class="p-1.5 hover:bg-white/10 rounded-lg text-slate-300" title="Forward"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                <button onclick="DriveExplorer.refresh()" class="p-1.5 hover:bg-white/10 rounded-lg text-slate-300" title="Refresh"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+              </div>
+
+              <!-- Breadcrumb bar -->
+              <div id="explorer-breadcrumbs" class="flex-1 flex items-center space-x-1.5 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 overflow-x-auto text-slate-300">
+                <span class="font-medium text-white flex items-center space-x-1"><i data-lucide="cloud" class="w-3.5 h-3.5 text-indigo-400"></i><span>My Drive</span></span>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="flex items-center space-x-2">
+                <button onclick="DriveStorage.createNewItemPrompt('folder')" class="flex items-center space-x-1 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-slate-200 transition">
+                  <i data-lucide="folder-plus" class="w-3.5 h-3.5 text-amber-400"></i>
+                  <span class="hidden sm:inline">New Folder</span>
+                </button>
+                <button onclick="DriveStorage.triggerFileUpload()" class="flex items-center space-x-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white transition shadow-md">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span class="hidden sm:inline">Upload</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Explorer Body -->
+            <div class="flex-1 flex overflow-hidden">
+              <!-- Sidebar Quick Links -->
+              <div class="w-48 bg-white/5 border-r border-white/10 p-2 hidden sm:flex flex-col space-y-1 text-xs">
+                <span class="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cloud Locations</span>
+                <button onclick="DriveExplorer.navigateTo('root', 'My Drive')" class="flex items-center space-x-2 w-full px-2.5 py-1.5 rounded-lg bg-white/10 text-white text-left">
+                  <i data-lucide="hard-drive" class="w-4 h-4 text-indigo-400"></i>
+                  <span>Drive Root</span>
+                </button>
+                <button onclick="DriveExplorer.filterType('text')" class="flex items-center space-x-2 w-full px-2.5 py-1.5 rounded-lg hover:bg-white/5 text-slate-300 text-left">
+                  <i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i>
+                  <span>Documents</span>
+                </button>
+                <button onclick="DriveExplorer.filterType('image')" class="flex items-center space-x-2 w-full px-2.5 py-1.5 rounded-lg hover:bg-white/5 text-slate-300 text-left">
+                  <i data-lucide="image" class="w-4 h-4 text-emerald-400"></i>
+                  <span>Pictures</span>
+                </button>
+
+                <div class="pt-3"></div>
+                <span class="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Status</span>
+                <div class="p-2.5 rounded-xl bg-black/20 text-[11px] text-slate-400 leading-tight space-y-1">
+                  <div class="flex justify-between text-white font-medium"><span>Storage</span><span id="exp-storage-mode">Virtual RAM</span></div>
+                  <p class="text-[10px] text-slate-400">No local device persistence.</p>
+                </div>
+              </div>
+
+              <!-- Files Grid / List View -->
+              <div id="explorer-files-container" class="flex-1 p-4 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 content-start">
+                <!-- Injected via refresh() -->
+              </div>
+            </div>
+
+            <!-- Footer Bar -->
+            <div class="h-7 bg-white/5 border-t border-white/10 px-3 flex items-center justify-between text-[11px] text-slate-400 select-none">
+              <span id="exp-items-count">0 items</span>
+              <span>Cloud Drive API v3</span>
+            </div>
+          `,
+          onInit: () => {
+            DriveExplorer.refresh();
+          }
+        });
+      },
+
+      async refresh() {
+        const container = document.getElementById('explorer-files-container');
+        const countEl = document.getElementById('exp-items-count');
+        const storageEl = document.getElementById('exp-storage-mode');
+        if (!container) return;
+
+        if (storageEl) {
+          storageEl.textContent = DriveStorage.mode === 'gdrive' ? 'Google Cloud' : 'Virtual RAM';
+        }
+
+        container.innerHTML = `<div class="col-span-full py-10 flex flex-col items-center justify-center text-slate-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin text-indigo-400 mb-2"></i><span>Loading Cloud Drive items...</span></div>`;
+        lucide.createIcons();
+
+        const items = await DriveStorage.listFiles(this.currentPathId);
+        container.innerHTML = '';
+
+        if (countEl) countEl.textContent = `${items.length} item${items.length === 1 ? '' : 's'}`;
+
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div class="col-span-full py-16 flex flex-col items-center justify-center text-slate-400">
+              <i data-lucide="folder-open" class="w-10 h-10 text-slate-500 mb-2"></i>
+              <span class="text-sm text-slate-300">This folder is empty</span>
+              <p class="text-xs text-slate-500 mt-1">Upload files or create new documents above</p>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'group flex flex-col items-center p-3 rounded-2xl hover:bg-white/10 border border-transparent hover:border-white/15 cursor-pointer transition relative text-center';
+
+          let icon = 'file';
+          let iconColor = 'text-blue-400';
+          if (item.type === 'folder') {
+            icon = 'folder';
+            iconColor = 'text-amber-400 fill-amber-400/20';
+          } else if (item.type.includes('image')) {
+            icon = 'image';
+            iconColor = 'text-emerald-400';
+          } else if (item.type.includes('json') || item.type.includes('javascript')) {
+            icon = 'file-code';
+            iconColor = 'text-yellow-400';
+          }
+
+          card.innerHTML = `
+            <div class="w-12 h-12 flex items-center justify-center rounded-xl bg-white/5 group-hover:scale-105 transition mb-2">
+              <i data-lucide="${icon}" class="w-7 h-7 ${iconColor}"></i>
+            </div>
+            <span class="text-xs font-medium text-slate-200 truncate w-full text-center leading-tight">${item.name}</span>
+            <span class="text-[10px] text-slate-400 mt-0.5">${item.size || '--'}</span>
+
+            <!-- Item Action Menu overlay -->
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex space-x-1 bg-slate-900/90 rounded-lg p-1">
+              <button onclick="event.stopPropagation(); DriveStorage.deleteItem('${item.id}', '${item.name}')" class="p-1 hover:text-red-400 text-slate-400" title="Delete"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
+          `;
+
+          card.ondblclick = () => {
+            if (item.type === 'folder') {
+              DriveExplorer.navigateTo(item.id, item.name);
+            } else if (item.type.includes('image')) {
+              AppManager.launch('media', { src: item.url || 'https://placehold.co/600x400/312e81/ffffff?text=' + encodeURIComponent(item.name), title: item.name });
+            } else {
+              AppManager.launch('notepad', { fileId: item.id, fileName: item.name });
+            }
+          };
+
+          container.appendChild(card);
+        });
+        lucide.createIcons();
+      },
+
+      navigateTo(folderId, folderName) {
+        this.currentPathId = folderId;
+        this.breadcrumbs.push({ id: folderId, name: folderName });
+        this.renderBreadcrumbs();
+        this.refresh();
+      },
+
+      renderBreadcrumbs() {
+        const bc = document.getElementById('explorer-breadcrumbs');
+        if (!bc) return;
+        bc.innerHTML = this.breadcrumbs.map((b, idx) => `
+          <button onclick="DriveExplorer.sliceBreadcrumbs(${idx})" class="hover:text-white font-medium flex items-center space-x-1">
+            <span>${b.name}</span>
+            ${idx < this.breadcrumbs.length - 1 ? '<i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>' : ''}
+          </button>
+        `).join('');
+        lucide.createIcons();
+      },
+
+      sliceBreadcrumbs(index) {
+        this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
+        const target = this.breadcrumbs[this.breadcrumbs.length - 1];
+        this.currentPathId = target.id;
+        this.renderBreadcrumbs();
+        this.refresh();
+      },
+
+      goBack() {
+        if (this.breadcrumbs.length > 1) {
+          this.breadcrumbs.pop();
+          const prev = this.breadcrumbs[this.breadcrumbs.length - 1];
+          this.currentPathId = prev.id;
+          this.renderBreadcrumbs();
+          this.refresh();
+        }
+      },
+
+      goForward() {
+        // Simple forward placeholder
+        this.refresh();
+      },
+
+      filterType(type) {
+        this.refresh();
+      }
+    };
+
+    /* 2. CLOUD NOTEPAD / CODE EDITOR */
+    const CloudEditor = {
+      open({ fileId = null, fileName = 'Untitled.txt', initialContent = '' } = {}) {
+        const editorId = `notepad-${fileId || Date.now()}`;
+        WindowManager.create({
+          id: editorId,
+          title: `Cloud Editor — ${fileName}`,
+          icon: 'file-text',
+          width: 640,
+          height: 460,
+          contentHtml: `
+            <div class="h-10 bg-white/5 border-b border-white/10 flex items-center justify-between px-3 text-xs">
+              <div class="flex items-center space-x-2">
+                <input type="text" id="${editorId}-name" value="${fileName}" class="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 w-44">
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Drive Linked</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="CloudEditor.save('${editorId}', '${fileId || ''}')" class="flex items-center space-x-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition shadow">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                  <span>Save to Drive</span>
+                </button>
+              </div>
+            </div>
+            <div class="flex-1 relative flex">
+              <textarea id="${editorId}-textarea" class="w-full h-full p-4 bg-transparent text-slate-100 font-mono text-xs focus:outline-none resize-none leading-relaxed" placeholder="Type notes or code here... Direct write to Google Drive.">${initialContent}</textarea>
+            </div>
+            <div class="h-6 bg-white/5 border-t border-white/10 px-3 flex items-center justify-between text-[10px] text-slate-400">
+              <span id="${editorId}-stats">Lines: 1 | Words: 0</span>
+              <span>Encoding: UTF-8 (Cloud Stream)</span>
+            </div>
+          `,
+          onInit: async (winEl) => {
+            const textarea = winEl.querySelector(`#${editorId}-textarea`);
+            const stats = winEl.querySelector(`#${editorId}-stats`);
+            
+            // If opening existing cloud file, fetch body
+            if (fileId) {
+              textarea.value = 'Loading file from Google Cloud...';
+              const body = await DriveStorage.readFile(fileId);
+              textarea.value = body;
+            }
+
+            const updateStats = () => {
+              const text = textarea.value;
+              const lines = text.split('\n').length;
+              const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+              stats.textContent = `Lines: ${lines} | Words: ${words} | Chars: ${text.length}`;
+            };
+
+            textarea.addEventListener('input', updateStats);
+            updateStats();
+          }
+        });
+      },
+
+      async save(editorId, fileId) {
+        const nameInput = document.getElementById(`${editorId}-name`);
+        const textarea = document.getElementById(`${editorId}-textarea`);
+        if (!nameInput || !textarea) return;
+
+        const filename = nameInput.value.trim() || 'Untitled.txt';
+        const content = textarea.value;
+
+        await DriveStorage.writeFile(filename, content, fileId || null, DriveExplorer.currentPathId);
+      }
+    };
+
+    /* 3. TERMINAL / CLOUD SHELL */
+    const CloudTerminal = {
+      open() {
+        WindowManager.create({
+          id: 'terminal',
+          title: 'Terminal — Cloud Shell',
+          icon: 'terminal',
+          width: 600,
+          height: 380,
+          contentHtml: `
+            <div class="flex-1 p-3 bg-slate-950/90 text-green-400 font-mono text-xs overflow-y-auto flex flex-col space-y-1" id="term-output">
+              <div class="text-slate-400">CloudOS Terminal v3.2 [Drive Cloud Shell Mode]</div>
+              <div class="text-slate-500">Type 'help' for a list of available cloud commands.</div>
+              <div class="pt-2"></div>
+            </div>
+            <div class="h-9 bg-black/60 border-t border-white/10 flex items-center px-3 font-mono text-xs">
+              <span class="text-indigo-400 mr-2">user@cloudos:~$</span>
+              <input type="text" id="term-input" class="flex-1 bg-transparent text-slate-100 focus:outline-none border-none" autofocus onkeydown="CloudTerminal.handleKey(event)">
+            </div>
+          `,
+          onInit: (el) => {
+            const input = el.querySelector('#term-input');
+            if (input) setTimeout(() => input.focus(), 100);
+          }
+        });
+      },
+
+      handleKey(e) {
+        if (e.key === 'Enter') {
+          const input = e.target;
+          const cmd = input.value.trim();
+          input.value = '';
+          this.executeCommand(cmd);
+        }
+      },
+
+      async executeCommand(rawCmd) {
+        const output = document.getElementById('term-output');
+        if (!output) return;
+
+        const promptLine = document.createElement('div');
+        promptLine.innerHTML = `<span class="text-indigo-400">user@cloudos:~$</span> <span class="text-white">${rawCmd}</span>`;
+        output.appendChild(promptLine);
+
+        const parts = rawCmd.split(' ');
+        const action = parts[0].toLowerCase();
+        const arg = parts.slice(1).join(' ');
+
+        let res = '';
+
+        switch (action) {
+          case 'help':
+            res = `Available Commands:
+  help               Show this manual
+  ls                 List items in active Drive directory
+  cat <file>         Print file contents from Cloud Storage
+  mkdir <dir>        Create folder on Google Drive
+  touch <file>       Create empty cloud document
+  rm <file>          Remove item
+  neofetch           System banner & specifications
+  drive-sync         Force refresh Drive index
+  whoami             Show logged-in user profile
+  date               Print current timestamp
+  clear              Clear terminal screen`;
+            break;
+
+          case 'clear':
+            output.innerHTML = '';
+            return;
+
+          case 'neofetch':
+            res = `
+       /\\         OS: CloudOS 2026.09 (GitHub Pages Web Desktop)
+      /  \\        Storage: ${DriveStorage.mode === 'gdrive' ? 'Google Drive REST API v3' : 'Virtual In-Memory Storage'}
+     /\\   \\       Client: Google Identity Services (GIS)
+    /      \\      Kernel: WebAssembly / Vanilla JS Runtime
+   /   ,,   \\     Browser: ${navigator.userAgent.slice(0, 32)}...
+  /   |  |  -\\    RAM: Virtual Ephemeral (Zero persistent local disk)
+`;
+            break;
+
+          case 'ls':
+            const items = await DriveStorage.listFiles(DriveExplorer.currentPathId);
+            res = items.map(i => `${i.type === 'folder' ? '📁 [DIR]' : '📄 [FILE]'}  ${i.name.padEnd(24)} ${i.size}`).join('\n') || 'Directory empty.';
+            break;
+
+          case 'cat':
+            if (!arg) {
+              res = 'Usage: cat <filename>';
+            } else {
+              const fileList = await DriveStorage.listFiles(DriveExplorer.currentPathId);
+              const found = fileList.find(f => f.name.toLowerCase() === arg.toLowerCase());
+              if (found) {
+                res = await DriveStorage.readFile(found.id);
+              } else {
+                res = `cat: ${arg}: File not found in current folder`;
+              }
+            }
+            break;
+
+          case 'mkdir':
+            if (!arg) {
+              res = 'Usage: mkdir <folder_name>';
+            } else {
+              await DriveStorage.createFolder(arg, DriveExplorer.currentPathId);
+              res = `Directory created on Drive: ${arg}`;
+            }
+            break;
+
+          case 'touch':
+            if (!arg) {
+              res = 'Usage: touch <filename>';
+            } else {
+              await DriveStorage.writeFile(arg, '', null, DriveExplorer.currentPathId);
+              res = `Created file on Drive: ${arg}`;
+            }
+            break;
+
+          case 'whoami':
+            res = DriveStorage.userProfile ? `${DriveStorage.userProfile.name} (${DriveStorage.userProfile.email})` : 'guest@cloudos-virtual';
+            break;
+
+          case 'date':
+            res = new Date().toUTCString();
+            break;
+
+          case 'drive-sync':
+            DriveStorage.syncRefresh();
+            res = 'Drive sync signal sent.';
+            break;
+
+          case '':
+            break;
+
+          default:
+            res = `command not found: ${action}. Type 'help' for command list.`;
+        }
+
+        if (res) {
+          const respLine = document.createElement('pre');
+          respLine.className = 'text-slate-300 font-mono text-xs whitespace-pre-wrap';
+          respLine.textContent = res;
+          output.appendChild(respLine);
+        }
+
+        output.scrollTop = output.scrollHeight;
+      }
+    };
+
+    /* 4. WEB BROWSER APP */
+    const WebBrowserApp = {
+      open() {
+        WindowManager.create({
+          id: 'browser',
+          title: 'Web Browser',
+          icon: 'globe',
+          width: 720,
+          height: 480,
+          contentHtml: `
+            <div class="h-10 bg-white/5 border-b border-white/10 flex items-center px-3 space-x-2 text-xs">
+              <button onclick="WebBrowserApp.navigate('https://en.wikipedia.org')" class="p-1 hover:bg-white/10 rounded"><i data-lucide="home" class="w-3.5 h-3.5"></i></button>
+              <input type="text" id="browser-url-bar" value="https://en.wikipedia.org" class="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1 text-xs text-white focus:outline-none" onkeydown="if(event.key==='Enter') WebBrowserApp.navigate(this.value)">
+              <button onclick="WebBrowserApp.navigate(document.getElementById('browser-url-bar').value)" class="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-lg"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <div class="flex-1 bg-white">
+              <iframe id="browser-iframe" src="https://en.wikipedia.org" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+            </div>
+          `
+        });
+      },
+      navigate(url) {
+        if (!url.startsWith('http')) url = 'https://' + url;
+        const iframe = document.getElementById('browser-iframe');
+        const bar = document.getElementById('browser-url-bar');
+        if (iframe) iframe.src = url;
+        if (bar) bar.value = url;
+      }
+    };
+
+    /* 5. CALCULATOR APP */
+    const CalculatorApp = {
+      open() {
+        WindowManager.create({
+          id: 'calculator',
+          title: 'Calculator',
+          icon: 'calculator',
+          width: 320,
+          height: 420,
+          contentHtml: `
+            <div class="p-3 bg-slate-900/60 flex flex-col h-full space-y-2">
+              <div id="calc-display" class="bg-black/50 border border-white/10 rounded-xl p-3 text-right text-2xl font-mono text-white truncate min-h-[52px]">0</div>
+              <div class="grid grid-cols-4 gap-2 flex-1 text-sm font-semibold">
+                <button onclick="CalculatorApp.clear()" class="p-2 bg-red-500/20 text-red-300 rounded-xl hover:bg-red-500/30">C</button>
+                <button onclick="CalculatorApp.append('(')" class="p-2 bg-white/10 text-slate-200 rounded-xl hover:bg-white/20">(</button>
+                <button onclick="CalculatorApp.append(')')" class="p-2 bg-white/10 text-slate-200 rounded-xl hover:bg-white/20">)</button>
+                <button onclick="CalculatorApp.append('/')" class="p-2 bg-indigo-600/50 text-indigo-200 rounded-xl hover:bg-indigo-600/70">÷</button>
+
+                <button onclick="CalculatorApp.append('7')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">7</button>
+                <button onclick="CalculatorApp.append('8')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">8</button>
+                <button onclick="CalculatorApp.append('9')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">9</button>
+                <button onclick="CalculatorApp.append('*')" class="p-2 bg-indigo-600/50 text-indigo-200 rounded-xl hover:bg-indigo-600/70">×</button>
+
+                <button onclick="CalculatorApp.append('4')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">4</button>
+                <button onclick="CalculatorApp.append('5')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">5</button>
+                <button onclick="CalculatorApp.append('6')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">6</button>
+                <button onclick="CalculatorApp.append('-')" class="p-2 bg-indigo-600/50 text-indigo-200 rounded-xl hover:bg-indigo-600/70">−</button>
+
+                <button onclick="CalculatorApp.append('1')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">1</button>
+                <button onclick="CalculatorApp.append('2')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">2</button>
+                <button onclick="CalculatorApp.append('3')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">3</button>
+                <button onclick="CalculatorApp.append('+')" class="p-2 bg-indigo-600/50 text-indigo-200 rounded-xl hover:bg-indigo-600/70">+</button>
+
+                <button onclick="CalculatorApp.append('0')" class="col-span-2 p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">0</button>
+                <button onclick="CalculatorApp.append('.')" class="p-2 bg-white/5 text-white rounded-xl hover:bg-white/15">.</button>
+                <button onclick="CalculatorApp.calculate()" class="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 shadow-md">=</button>
+              </div>
+            </div>
+          `
+        });
+      },
+      current: '',
+      append(char) {
+        SoundEngine.click();
+        this.current += char;
+        document.getElementById('calc-display').textContent = this.current;
+      },
+      clear() {
+        SoundEngine.click();
+        this.current = '';
+        document.getElementById('calc-display').textContent = '0';
+      },
+      calculate() {
+        SoundEngine.action();
+        try {
+          // Safe arithmetic evaluator
+          const sanitized = this.current.replace(/[^0-9+\-*/().]/g, '');
+          const result = Function(`'use strict'; return (${sanitized})`)();
+          this.current = String(result);
+          document.getElementById('calc-display').textContent = this.current;
+        } catch (e) {
+          document.getElementById('calc-display').textContent = 'Error';
+          this.current = '';
+        }
+      }
+    };
+
+    /* 6. MEDIA PLAYER */
+    const MediaPlayerApp = {
+      open({ src = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800', title = 'Landscape.jpg' } = {}) {
+        WindowManager.create({
+          id: 'media-player',
+          title: `Viewer — ${title}`,
+          icon: 'play-square',
+          width: 580,
+          height: 420,
+          contentHtml: `
+            <div class="flex-1 bg-black flex items-center justify-center p-2 overflow-hidden">
+              <img src="${src}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" alt="${title}" onerror="this.src='https://placehold.co/600x400/222/fff?text=Media+Preview+Error'">
+            </div>
+            <div class="h-10 bg-white/5 border-t border-white/10 px-4 flex items-center justify-between text-xs text-slate-300">
+              <span>${title}</span>
+              <span>Cloud Media Stream</span>
+            </div>
+          `
+        });
+      }
+    };
+
+    /* 7. TASK MANAGER */
+    const TaskManagerApp = {
+      open() {
+        WindowManager.create({
+          id: 'taskmgr',
+          title: 'Task Manager',
+          icon: 'activity',
+          width: 540,
+          height: 380,
+          contentHtml: `
+            <div class="h-full flex flex-col p-4 text-xs space-y-4">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="acrylic-card p-3 rounded-xl">
+                  <div class="flex justify-between items-center text-slate-400 mb-1"><span>CPU Utilization</span><span id="tm-cpu-val" class="text-white font-medium">12%</span></div>
+                  <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                    <div id="tm-cpu-bar" class="bg-indigo-500 h-full w-[12%] transition-all duration-500"></div>
+                  </div>
+                </div>
+                <div class="acrylic-card p-3 rounded-xl">
+                  <div class="flex justify-between items-center text-slate-400 mb-1"><span>RAM (Runtime)</span><span id="tm-ram-val" class="text-white font-medium">148 MB</span></div>
+                  <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                    <div id="tm-ram-bar" class="bg-emerald-500 h-full w-[28%] transition-all duration-500"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex-1 flex flex-col acrylic-card rounded-xl overflow-hidden">
+                <div class="h-8 bg-white/5 px-3 flex items-center justify-between font-semibold text-slate-300 border-b border-white/10">
+                  <span>Running Process</span>
+                  <span>Action</span>
+                </div>
+                <div id="task-manager-list" class="flex-1 overflow-y-auto divide-y divide-white/5 p-1">
+                  <!-- Task processes list injected here -->
+                </div>
+              </div>
+            </div>
+          `,
+          onInit: () => {
+            TaskManagerApp.renderList();
+            TaskManagerApp.startTicker();
+          }
+        });
+      },
+
+      renderList() {
+        const container = document.getElementById('task-manager-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        Object.keys(WindowManager.windows).forEach(winId => {
+          const win = WindowManager.windows[winId];
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between p-2 hover:bg-white/5 text-slate-200';
+          row.innerHTML = `
+            <div class="flex items-center space-x-2">
+              <i data-lucide="${win.icon}" class="w-4 h-4 text-indigo-400"></i>
+              <span>${win.title}</span>
+            </div>
+            <button onclick="WindowManager.close('${winId}'); TaskManagerApp.renderList();" class="px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded text-[11px] transition">End Task</button>
+          `;
+          container.appendChild(row);
+        });
+        lucide.createIcons();
+      },
+
+      startTicker() {
+        const interval = setInterval(() => {
+          const cpuVal = document.getElementById('tm-cpu-val');
+          const cpuBar = document.getElementById('tm-cpu-bar');
+          if (!cpuVal) {
+            clearInterval(interval);
+            return;
+          }
+          const rndCpu = Math.floor(Math.random() * 25) + 8;
+          cpuVal.textContent = `${rndCpu}%`;
+          cpuBar.style.width = `${rndCpu}%`;
+        }, 2000);
+      }
+    };
+
+    /* 8. SETTINGS APP (Google Drive API Auth & Wallpapers) */
+    const SettingsApp = {
+      open({ tab = 'drive' } = {}) {
+        WindowManager.create({
+          id: 'settings',
+          title: 'System Settings',
+          icon: 'settings',
+          width: 660,
+          height: 480,
+          contentHtml: `
+            <div class="h-full flex overflow-hidden">
+              <!-- Settings Sidebar -->
+              <div class="w-44 bg-white/5 border-r border-white/10 p-3 space-y-1 text-xs">
+                <button onclick="SettingsApp.switchTab('drive')" id="set-tab-btn-drive" class="flex items-center space-x-2 w-full px-3 py-2 rounded-xl bg-white/10 text-white text-left transition">
+                  <i data-lucide="cloud" class="w-4 h-4 text-indigo-400"></i>
+                  <span>Google Drive API</span>
+                </button>
+                <button onclick="SettingsApp.switchTab('wallpapers')" id="set-tab-btn-wallpapers" class="flex items-center space-x-2 w-full px-3 py-2 rounded-xl hover:bg-white/5 text-slate-300 text-left transition">
+                  <i data-lucide="image" class="w-4 h-4 text-purple-400"></i>
+                  <span>Wallpapers</span>
+                </button>
+                <button onclick="SettingsApp.switchTab('about')" id="set-tab-btn-about" class="flex items-center space-x-2 w-full px-3 py-2 rounded-xl hover:bg-white/5 text-slate-300 text-left transition">
+                  <i data-lucide="info" class="w-4 h-4 text-emerald-400"></i>
+                  <span>About CloudOS</span>
+                </button>
+              </div>
+
+              <!-- Settings Content Panels -->
+              <div class="flex-1 p-5 overflow-y-auto text-xs text-slate-300">
+                
+                <!-- Google Drive Config Panel -->
+                <div id="set-panel-drive" class="space-y-4">
+                  <div class="border-b border-white/10 pb-3">
+                    <h3 class="text-sm font-semibold text-white">Google Drive Integration</h3>
+                    <p class="text-slate-400 mt-0.5">Direct client-side access via Google Identity Services & Drive REST v3 API.</p>
+                  </div>
+
+                  <div class="acrylic-card p-3 rounded-xl border border-indigo-500/20 bg-indigo-950/20">
+                    <div class="flex items-start space-x-2.5">
+                      <i data-lucide="shield-check" class="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5"></i>
+                      <div class="text-[11px] leading-relaxed">
+                        <strong class="text-white">Zero Local Persistence:</strong> Your credentials and file buffers exist strictly in runtime memory for the session. Perfect for deploying as a static website on GitHub Pages!
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div>
+                      <label class="block text-slate-300 mb-1 font-medium">Google OAuth Client ID</label>
+                      <input type="text" id="cfg-client-id" placeholder="e.g. 123456789-abcdef.apps.googleusercontent.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs">
+                    </div>
+                    <div>
+                      <label class="block text-slate-300 mb-1 font-medium">Google API Key</label>
+                      <input type="password" id="cfg-api-key" placeholder="e.g. AIzaSyB..." class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs">
+                    </div>
+
+                    <div class="flex items-center space-x-3 pt-2">
+                      <button onclick="SettingsApp.applyDriveAuth()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition shadow-lg flex items-center space-x-2">
+                        <i data-lucide="log-in" class="w-4 h-4"></i>
+                        <span>Authenticate Drive</span>
+                      </button>
+                      <button onclick="DriveStorage.disconnectDrive()" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-200 rounded-xl transition">
+                        Reset to Virtual RAM Drive
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="pt-4 border-t border-white/10">
+                    <h4 class="font-semibold text-white mb-1.5">How to get free Google API credentials:</h4>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
+                      <li>Open <a href="https://console.cloud.google.com/" target="_blank" class="text-indigo-400 underline">Google Cloud Console</a>.</li>
+                      <li>Enable the <strong>Google Drive API</strong> in APIs & Services.</li>
+                      <li>Configure OAuth Consent Screen and create <strong>OAuth Client ID (Web Application)</strong>.</li>
+                      <li>Add your GitHub Pages URL to <em>Authorized JavaScript Origins</em>.</li>
+                    </ol>
+                  </div>
+                </div>
+
+                <!-- Wallpapers Panel -->
+                <div id="set-panel-wallpapers" class="space-y-4 hidden">
+                  <div class="border-b border-white/10 pb-3">
+                    <h3 class="text-sm font-semibold text-white">Desktop Wallpaper</h3>
+                    <p class="text-slate-400 mt-0.5">Select a curated backdrop or provide a custom image URL.</p>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3" id="wallpapers-grid">
+                    <!-- Populated by JS -->
+                  </div>
+                  <div>
+                    <label class="block text-slate-300 mb-1 font-medium">Custom Image URL</label>
+                    <div class="flex space-x-2">
+                      <input type="text" id="cfg-custom-bg" placeholder="https://..." class="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500">
+                      <button onclick="Desktop.setWallpaper(document.getElementById('cfg-custom-bg').value)" class="px-3 py-1.5 bg-indigo-600 rounded-xl text-white">Apply</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- About Panel -->
+                <div id="set-panel-about" class="space-y-3 hidden">
+                  <div class="border-b border-white/10 pb-3">
+                    <h3 class="text-sm font-semibold text-white">About CloudOS / DriveDesktop</h3>
+                    <p class="text-slate-400 mt-0.5">A zero-local storage cloud operating system replica.</p>
+                  </div>
+                  <p class="leading-relaxed">
+                    Designed specifically for fast, serverless hosting on <strong>GitHub Pages</strong>. It turns your Google Drive into a graphical workstation anywhere you have a web browser.
+                  </p>
+                  <div class="acrylic-card p-3 rounded-xl text-[11px] space-y-1">
+                    <div><strong>Architecture:</strong> Vanilla JS / Single File HTML / Tailwind CSS</div>
+                    <div><strong>Storage Backend:</strong> Google Drive API v3 REST</div>
+                    <div><strong>Identity Engine:</strong> GIS (Google Identity Services)</div>
+                    <div><strong>Version:</strong> 3.2.0-cloud</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          `,
+          onInit: () => {
+            SettingsApp.initWallpapers();
+            if (tab) SettingsApp.switchTab(tab);
+          }
+        });
+      },
+
+      switchTab(tabName) {
+        ['drive', 'wallpapers', 'about'].forEach(t => {
+          const panel = document.getElementById(`set-panel-${t}`);
+          const btn = document.getElementById(`set-tab-btn-${t}`);
+          if (panel) panel.classList.toggle('hidden', t !== tabName);
+          if (btn) {
+            btn.classList.toggle('bg-white/10', t === tabName);
+            btn.classList.toggle('text-white', t === tabName);
+            btn.classList.toggle('text-slate-300', t !== tabName);
+          }
+        });
+      },
+
+      initWallpapers() {
+        const grid = document.getElementById('wallpapers-grid');
+        if (!grid) return;
+        const presets = [
+          { name: 'Aurora Vibrant', url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070&auto=format&fit=crop' },
+          { name: 'Deep Space', url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=2070&auto=format&fit=crop' },
+          { name: 'Alpine Peak', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop' },
+          { name: 'Minimal Dark', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2070&auto=format&fit=crop' }
+        ];
+
+        grid.innerHTML = presets.map(p => `
+          <div onclick="Desktop.setWallpaper('${p.url}')" class="group cursor-pointer rounded-xl overflow-hidden border border-white/10 hover:border-indigo-400 transition relative h-24">
+            <img src="${p.url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute bottom-1 left-2 text-[10px] font-medium bg-black/60 px-1.5 py-0.5 rounded text-white">${p.name}</span>
+          </div>
+        `).join('');
+      },
+
+      applyDriveAuth() {
+        const cid = document.getElementById('cfg-client-id').value.trim();
+        const akey = document.getElementById('cfg-api-key').value.trim();
+        DriveStorage.initGoogleDriveAuth(cid, akey);
+      }
+    };
+  </script>
+
+  <script>
+    /**
+     * Desktop Environment Manager: Controls desktop icons, start menu toggles,
+     * calendar clock popups, wallpapers, and selection rects.
+     */
+    const Desktop = {
+      isStartOpen: false,
+
+      init() {
+        this.renderDesktopIcons();
+        this.renderStartApps();
+        this.startClock();
+        this.setupMarqueeSelection();
+        DriveStorage.init();
+        CalendarView.init();
+
+        // Close dropdowns on outside desktop click
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('#start-menu') && !e.target.closest('#start-btn')) {
+            this.closeStartMenu();
+          }
+          if (!e.target.closest('#context-menu')) {
+            this.closeContextMenu();
+          }
+          if (!e.target.closest('#calendar-popover') && !e.target.closest('#tray-clock')) {
+            document.getElementById('calendar-popover').classList.add('hidden');
+          }
+          if (!e.target.closest('#tray-volume-popover') && !e.target.closest('[title="Volume Controls"]')) {
+            document.getElementById('tray-volume-popover').classList.add('hidden');
+          }
+        });
+      },
+
+      renderDesktopIcons() {
+        const container = document.getElementById('desktop-icons-container');
+        const shortcuts = [
+          { appId: 'explorer', name: 'Google Drive', icon: 'hard-drive', color: 'text-indigo-400' },
+          { appId: 'notepad', name: 'Cloud Editor', icon: 'file-text', color: 'text-blue-400' },
+          { appId: 'terminal', name: 'Cloud Terminal', icon: 'terminal', color: 'text-emerald-400' },
+          { appId: 'browser', name: 'Web Browser', icon: 'globe', color: 'text-cyan-400' },
+          { appId: 'calculator', name: 'Calculator', icon: 'calculator', color: 'text-amber-400' },
+          { appId: 'media', name: 'Media Player', icon: 'play-square', color: 'text-rose-400' },
+          { appId: 'taskmgr', name: 'Task Manager', icon: 'activity', color: 'text-green-400' },
+          { appId: 'settings', name: 'Settings', icon: 'settings', color: 'text-slate-300' }
+        ];
+
+        container.innerHTML = shortcuts.map(s => `
+          <div ondblclick="AppManager.launch('${s.appId}')" onclick="SoundEngine.click()" class="desktop-icon-node group flex flex-col items-center justify-center p-2 rounded-xl hover:bg-white/15 active:bg-white/20 transition cursor-pointer w-20 text-center select-none">
+            <div class="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center mb-1.5 shadow-lg backdrop-blur-md border border-white/15 group-hover:scale-105 transition">
+              <i data-lucide="${s.icon}" class="w-6 h-6 ${s.color}"></i>
+            </div>
+            <span class="text-[11px] font-medium text-white drop-shadow leading-tight truncate w-full">${s.name}</span>
+          </div>
+        `).join('');
+        lucide.createIcons();
+      },
+
+      renderStartApps(filter = '') {
+        const container = document.getElementById('start-apps-grid');
+        if (!container) return;
+
+        const apps = Object.entries(AppManager.apps)
+          .filter(([k, v]) => v.title.toLowerCase().includes(filter.toLowerCase()) || v.category.toLowerCase().includes(filter.toLowerCase()));
+
+        container.innerHTML = apps.map(([id, app]) => `
+          <button onclick="AppManager.launch('${id}')" class="flex flex-col items-center p-2.5 rounded-xl hover:bg-white/10 active:bg-white/20 transition group text-center">
+            <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-1 group-hover:scale-110 transition border border-white/10">
+              <i data-lucide="${app.icon}" class="w-5 h-5 text-indigo-400"></i>
+            </div>
+            <span class="text-[10px] text-slate-200 font-medium truncate w-full">${app.title}</span>
+          </button>
+        `).join('');
+        lucide.createIcons();
+      },
+
+      filterStartApps(term) {
+        this.renderStartApps(term);
+      },
+
+      toggleStartMenu(forceOpenSearch = false) {
+        this.isStartOpen = !this.isStartOpen;
+        const menu = document.getElementById('start-menu');
+        menu.classList.toggle('hidden', !this.isStartOpen);
+        SoundEngine.click();
+
+        if (this.isStartOpen && forceOpenSearch) {
+          const input = document.getElementById('start-search-input');
+          if (input) input.focus();
+        }
+      },
+
+      closeStartMenu() {
+        this.isStartOpen = false;
+        document.getElementById('start-menu').classList.add('hidden');
+      },
+
+      openContextMenu(e) {
+        const menu = document.getElementById('context-menu');
+        menu.style.left = `${Math.min(e.clientX, window.innerWidth - 220)}px`;
+        menu.style.top = `${Math.min(e.clientY, window.innerHeight - 200)}px`;
+        menu.classList.remove('hidden');
+        SoundEngine.click();
+      },
+
+      closeContextMenu() {
+        document.getElementById('context-menu').classList.add('hidden');
+      },
+
+      toggleCalendar() {
+        const cal = document.getElementById('calendar-popover');
+        cal.classList.toggle('hidden');
+        SoundEngine.click();
+      },
+
+      toggleTrayVolume() {
+        const vol = document.getElementById('tray-volume-popover');
+        vol.classList.toggle('hidden');
+        SoundEngine.click();
+      },
+
+      setWallpaper(url) {
+        if (!url) return;
+        document.getElementById('desktop-wallpaper').style.backgroundImage = `url('${url}')`;
+        Notifications.show('Wallpaper Updated', 'Desktop background changed.', 'success');
+      },
+
+      startClock() {
+        const clockEl = document.getElementById('tray-clock');
+        const dateEl = document.getElementById('tray-date');
+
+        const tick = () => {
+          const now = new Date();
+          clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          dateEl.textContent = now.toISOString().split('T')[0];
+        };
+        tick();
+        setInterval(tick, 1000);
+      },
+
+      openSessionControl() {
+        SystemDialog.show({
+          title: 'Session Management',
+          message: 'CloudOS operates completely in runtime memory. Refreshing or closing this tab completely purges active credentials and RAM files.',
+          icon: 'power',
+          onConfirm: () => {
+            location.reload();
+          }
+        });
+      },
+
+      setupMarqueeSelection() {
+        const desktop = document.getElementById('desktop-area');
+        const box = document.getElementById('selection-box');
+        let startX, startY, isSelecting = false;
+
+        desktop.addEventListener('mousedown', (e) => {
+          if (e.target !== desktop && e.target !== document.getElementById('desktop-icons-container')) return;
+          isSelecting = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          box.style.left = `${startX}px`;
+          box.style.top = `${startY}px`;
+          box.style.width = '0px';
+          box.style.height = '0px';
+          box.classList.remove('hidden');
+        });
+
+        window.addEventListener('mousemove', (e) => {
+          if (!isSelecting) return;
+          const currentX = e.clientX;
+          const currentY = e.clientY;
+          const width = Math.abs(currentX - startX);
+          const height = Math.abs(currentY - startY);
+          const left = Math.min(currentX, startX);
+          const top = Math.min(currentY, startY);
+
+          box.style.width = `${width}px`;
+          box.style.height = `${height}px`;
+          box.style.left = `${left}px`;
+          box.style.top = `${top}px`;
+        });
+
+        window.addEventListener('mouseup', () => {
+          if (isSelecting) {
+            isSelecting = false;
+            box.classList.add('hidden');
+          }
+        });
+      }
+    };
+
+    /* Interactive Tray Calendar */
+    const CalendarView = {
+      currDate: new Date(),
+      init() {
+        this.render();
+      },
+      render() {
+        const grid = document.getElementById('cal-grid');
+        const monthYear = document.getElementById('cal-month-year');
+        if (!grid) return;
+
+        const year = this.currDate.getFullYear();
+        const month = this.currDate.getMonth();
+        monthYear.textContent = this.currDate.toLocaleDateString([], { month: 'long', year: 'numeric' });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+
+        grid.innerHTML = '';
+
+        for (let i = 0; i < firstDay; i++) {
+          grid.innerHTML += `<span></span>`;
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+          const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+          grid.innerHTML += `
+            <span class="py-1 rounded-lg ${isToday ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-white/10'}">${day}</span>
+          `;
+        }
+      },
+      prevMonth() {
+        this.currDate.setMonth(this.currDate.getMonth() - 1);
+        this.render();
+      },
+      nextMonth() {
+        this.currDate.setMonth(this.currDate.getMonth() + 1);
+        this.render();
+      }
+    };
+
+    // System Startup Execution
+    window.addEventListener('DOMContentLoaded', () => {
+      Desktop.init();
+      // Welcome Notification
+      setTimeout(() => {
+        Notifications.show('CloudOS Ready', 'Virtual Cloud Drive is running. Open Settings to connect Google Drive.', 'info');
+      }, 600);
     });
   </script>
 </body>
