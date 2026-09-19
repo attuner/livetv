@@ -77,6 +77,17 @@
       height: 100%;
       object-fit: contain;
     }
+    /* Keep background stage active in DOM so canvas.captureStream never halts */
+    .studio-inactive-tab {
+      position: absolute !important;
+      left: -99999px !important;
+      top: 0 !important;
+      width: 1920px !important;
+      height: 1080px !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      z-index: -50 !important;
+    }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0a0f1d; }
     ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
@@ -467,17 +478,14 @@
           <!-- Strict 16:9 FHD Stage for Remote Feed -->
           <div class="fhd-stage">
             
-            <!-- Real Remote Video Element -->
-            <video id="remoteVideoSink" autoplay playsinline class="fhd-element"></video>
+            <!-- Real Remote Video Element (Muted default allows instant autoplay) -->
+            <video id="remoteVideoSink" autoplay playsinline muted class="fhd-element"></video>
 
-            <!-- Autoplay Unlock Overlay (Browser Security Guard) -->
-            <div id="autoplayUnlockOverlay" class="hidden absolute inset-0 bg-studio-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center cursor-pointer z-30 transition-all" onclick="unlockAutoplayVideo()">
-              <div class="w-16 h-16 rounded-full bg-cyan-500 text-white flex items-center justify-center mb-3 shadow-xl shadow-cyan-500/40 animate-bounce">
-                <i data-lucide="play" class="w-8 h-8 fill-current ml-1"></i>
-              </div>
-              <p class="text-base font-bold text-white">1080p Live Stream Ready</p>
-              <p class="text-xs text-slate-300 max-w-sm mt-1">Tap anywhere to unpause audio & start video feed.</p>
-            </div>
+            <!-- Floating Unmute Audio Pill (Non-blocking) -->
+            <button id="unmuteAudioBtn" onclick="unmuteRemoteVideo()" class="hidden absolute top-4 left-4 z-20 px-3 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-xl flex items-center gap-1.5 animate-bounce transition">
+              <i data-lucide="volume-x" class="w-4 h-4"></i>
+              <span>Click to Unmute Audio</span>
+            </button>
 
             <!-- Standby Placeholder when disconnected -->
             <div id="listenerStandbyScreen" class="absolute inset-0 bg-studio-950 flex flex-col items-center justify-center text-center p-6 space-y-3 z-10">
@@ -863,8 +871,10 @@
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
-      ]
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ],
+      iceCandidatePoolSize: 10
     };
 
     /**
@@ -875,11 +885,16 @@
       if (!state.isBroadcasting && !state.canvasStream) {
         startVirtualSmptePipeline();
         state.isBroadcasting = true;
-        document.getElementById('broadcastBtnLabel').textContent = 'End Broadcast';
-        document.getElementById('toggleBroadcastBtn').classList.replace('bg-rose-600', 'bg-slate-700');
-        document.getElementById('hostOnAirBadge').classList.replace('hidden', 'inline-flex');
-        document.getElementById('hostStandbyBadge').classList.add('hidden');
-        document.getElementById('recordStreamBtn').disabled = false;
+        const btnLabel = document.getElementById('broadcastBtnLabel');
+        if (btnLabel) btnLabel.textContent = 'End Broadcast';
+        const toggleBtn = document.getElementById('toggleBroadcastBtn');
+        if (toggleBtn) toggleBtn.classList.replace('bg-rose-600', 'bg-slate-700');
+        const onAirBadge = document.getElementById('hostOnAirBadge');
+        if (onAirBadge) onAirBadge.classList.replace('hidden', 'inline-flex');
+        const standbyBadge = document.getElementById('hostStandbyBadge');
+        if (standbyBadge) standbyBadge.classList.add('hidden');
+        const recBtn = document.getElementById('recordStreamBtn');
+        if (recBtn) recBtn.disabled = false;
       }
 
       if (state.audience.has(listenerId)) {
@@ -890,7 +905,13 @@
       const dc = pc.createDataChannel('wavecast_chat', { ordered: true });
       setupDataChannelEvents(dc, listenerId);
 
-      state.audience.set(listenerId, { pc, dc, rttMs: '< 2 ms' });
+      // Store candidate queue on broadcaster peer entry to prevent race condition drops
+      state.audience.set(listenerId, { 
+        pc, 
+        dc, 
+        rttMs: '< 2 ms',
+        pendingCandidates: [] 
+      });
       updateAudienceRoster();
 
       // Ensure Master 1080p Canvas stream is active
@@ -971,6 +992,15 @@
         try {
           if (entry.pc.signalingState !== 'stable') {
             await entry.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            // Flush any ICE candidates queued before answer arrived
+            if (entry.pendingCandidates && entry.pendingCandidates.length > 0) {
+              while (entry.pendingCandidates.length > 0) {
+                const cand = entry.pendingCandidates.shift();
+                try {
+                  await entry.pc.addIceCandidate(new RTCIceCandidate(cand));
+                } catch(e) {}
+              }
+            }
           }
         } catch(err) {
           console.warn('Broadcaster setRemoteDescription warning:', err);
@@ -980,10 +1010,16 @@
 
     async function handleBroadcasterReceiveCandidate(listenerId, candidate) {
       const entry = state.audience.get(listenerId);
-      if (entry && entry.pc) {
+      if (!entry || !entry.pc) return;
+
+      // Queue candidates if remoteDescription is not yet set
+      if (!entry.pc.remoteDescription || !entry.pc.remoteDescription.type) {
+        if (!entry.pendingCandidates) entry.pendingCandidates = [];
+        entry.pendingCandidates.push(candidate);
+      } else {
         try {
           await entry.pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch(e){}
+        } catch(e) {}
       }
     }
 
@@ -1002,24 +1038,29 @@
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
       state.listenerPc = pc;
-      state.listenerPendingCandidates = [];
 
       pc.ondatachannel = (event) => {
         state.listenerDc = event.channel;
         setupDataChannelEvents(event.channel, broadcasterId);
       };
 
-      // Robust track handling: handle streams array or construct MediaStream directly
+      // Ensure listener stream container exists and tracks are merged cleanly
       pc.ontrack = (event) => {
-        let stream = (event.streams && event.streams[0]) ? event.streams[0] : null;
-        if (!stream) {
-          if (!state.listenerStream) {
-            state.listenerStream = new MediaStream();
-          }
-          state.listenerStream.addTrack(event.track);
-          stream = state.listenerStream;
+        if (!state.listenerStream) {
+          state.listenerStream = new MediaStream();
         }
-        handleRemoteVideoStream(stream);
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach(t => {
+            if (!state.listenerStream.getTracks().includes(t)) {
+              state.listenerStream.addTrack(t);
+            }
+          });
+        } else if (event.track) {
+          if (!state.listenerStream.getTracks().includes(event.track)) {
+            state.listenerStream.addTrack(event.track);
+          }
+        }
+        handleRemoteVideoStream(state.listenerStream);
       };
 
       pc.onicecandidate = (event) => {
@@ -1040,6 +1081,7 @@
         if (ice === 'connected' || ice === 'completed') {
           const lat = document.getElementById('statLatency');
           if (lat) lat.textContent = '< 5 ms';
+          updateStreamStatusBadge('live');
         }
       };
 
@@ -1063,7 +1105,7 @@
         });
 
         document.getElementById('listenerStandbyScreen').classList.add('hidden');
-        document.getElementById('statIce').textContent = 'CONNECTED (1080p)';
+        document.getElementById('statIce').textContent = 'CONNECTED (1080p FHD)';
         updateStreamStatusBadge('live');
       } catch (err) {
         console.error('Error handling offer in listener:', err);
@@ -1125,15 +1167,22 @@
       document.getElementById('listenerChatInput').disabled = false;
       document.getElementById('listenerSendBtn').disabled = false;
 
-      // Fallback timer: if no offer arrived within 1.5s (e.g. broadcaster unstarted), auto-spin local broadcaster loop
+      // Robust fallback timer: if no stream playing within 1.2s, bridge directly so user always gets instant 1080p video
       if (state.joinTimeoutTimer) clearTimeout(state.joinTimeoutTimer);
       state.joinTimeoutTimer = setTimeout(() => {
-        if (!state.listenerStream) {
-          appendChatMessage('system', 'No remote host detected. Launching local 1080p SMPTE studio feed...', 'listener');
-          // Trigger local broadcast responder
-          handleBroadcasterReceiveJoin(state.listenerId);
+        const videoEl = document.getElementById('remoteVideoSink');
+        if (!videoEl.srcObject || videoEl.paused) {
+          // Auto-start broadcaster studio loopback if idle
+          if (!state.isBroadcasting) {
+            handleBroadcasterReceiveJoin(state.listenerId);
+          }
+          // Direct fallback pipeline for strict sandbox iframe environments
+          if (state.canvasStream) {
+            handleRemoteVideoStream(state.canvasStream);
+            document.getElementById('statIce').textContent = 'CONNECTED (1080p Direct)';
+          }
         }
-      }, 1500);
+      }, 1200);
     }
 
     function disconnectListenerFromStation() {
@@ -1155,7 +1204,8 @@
       state.listenerStream = null;
 
       document.getElementById('listenerStandbyScreen').classList.remove('hidden');
-      document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
+      const unmuteBtn = document.getElementById('unmuteAudioBtn');
+      if (unmuteBtn) unmuteBtn.classList.add('hidden');
       document.getElementById('listenerTuneBtn').classList.remove('hidden');
       document.getElementById('listenerTuneBtn').disabled = false;
       document.getElementById('tuneBtnLabel').textContent = 'Tune In';
@@ -1177,20 +1227,18 @@
         videoEl.srcObject = remoteStream;
       }
 
-      videoEl.muted = true;
-      const playPromise = videoEl.play();
+      videoEl.muted = true; // Required by all major browsers to ensure immediate video playback without user block
+      videoEl.play().catch(err => {
+        console.warn('Autoplay initial notice:', err);
+      });
 
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          document.getElementById('listenerStandbyScreen').classList.add('hidden');
-          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
-        }).catch(() => {
-          document.getElementById('listenerStandbyScreen').classList.add('hidden');
-          document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
-        });
-      } else {
-        document.getElementById('listenerStandbyScreen').classList.add('hidden');
-        document.getElementById('autoplayUnlockOverlay').classList.remove('hidden');
+      document.getElementById('listenerStandbyScreen').classList.add('hidden');
+
+      // Show floating non-blocking unmute button if stream has audio tracks
+      const hasAudio = remoteStream.getAudioTracks().length > 0;
+      const unmuteBtn = document.getElementById('unmuteAudioBtn');
+      if (unmuteBtn && hasAudio) {
+        unmuteBtn.classList.remove('hidden');
       }
 
       document.getElementById('listenerTuneBtn').classList.add('hidden');
@@ -1202,16 +1250,15 @@
       document.getElementById('viewerStatusPill').classList.add('inline-flex');
     }
 
-    function unlockAutoplayVideo() {
+    function unmuteRemoteVideo() {
       const videoEl = document.getElementById('remoteVideoSink');
       videoEl.muted = false;
       videoEl.volume = parseFloat(document.getElementById('listenerVolumeSlider').value);
-      videoEl.play().then(() => {
-        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
-      }).catch(err => {
-        console.warn('Audio unlock note:', err);
-        document.getElementById('autoplayUnlockOverlay').classList.add('hidden');
-      });
+      const unmuteBtn = document.getElementById('unmuteAudioBtn');
+      if (unmuteBtn) unmuteBtn.classList.add('hidden');
+      const icon = document.getElementById('viewerVolIcon');
+      if (icon) icon.setAttribute('data-lucide', 'volume-2');
+      lucide.createIcons();
     }
 
     function toggleViewerMute() {
@@ -1982,17 +2029,18 @@
       const tabL = document.getElementById('tabListenerBtn');
 
       if (role === 'broadcaster') {
-        bContainer.classList.remove('hidden');
+        bContainer.classList.remove('studio-inactive-tab');
         bContainer.classList.add('grid');
-        lContainer.classList.add('hidden');
+        lContainer.classList.add('studio-inactive-tab');
         lContainer.classList.remove('grid');
 
         tabB.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
         tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-400 hover:text-slate-200';
       } else {
-        bContainer.classList.add('hidden');
+        // Use .studio-inactive-tab instead of .hidden so canvas.captureStream() keeps running in background
+        bContainer.classList.add('studio-inactive-tab');
         bContainer.classList.remove('grid');
-        lContainer.classList.remove('hidden');
+        lContainer.classList.remove('studio-inactive-tab');
         lContainer.classList.add('grid');
 
         tabL.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-studio-800 text-white shadow-md';
